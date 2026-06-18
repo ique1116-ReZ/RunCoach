@@ -81,3 +81,14 @@ export const generateLoopRoute = async (
   }
   return best as RouteResult
 }
+
+export const generatePointToPointRoute = async (
+  start: LngLat,
+  end: LngLat,
+  deps: { fetchRoute?: () => Promise<RouteResult> } = {}
+): Promise<RouteResult> => {
+  const fetchRoute =
+    deps.fetchRoute ??
+    (async () => parseGeoJson(await postOrs(buildDirectionsBody(start, end)), 'point_to_point'))
+  return fetchRoute()
+}

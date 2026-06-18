@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildRoundTripBody, buildDirectionsBody, parseGeoJson, generateLoopRoute } from './ors'
+import { buildRoundTripBody, buildDirectionsBody, parseGeoJson, generateLoopRoute, generatePointToPointRoute } from './ors'
 
 describe('ORS request bodies', () => {
   it('round trip body 携带 length/seed/points 与 elevation', () => {
@@ -71,5 +71,15 @@ describe('generateLoopRoute 凑距离', () => {
       fetchRoute: async () => fakeRoute(4000) // 永远偏短
     })
     expect(r.distanceM).toBe(4000) // 最接近（也是唯一）
+  })
+})
+
+describe('generatePointToPointRoute', () => {
+  it('直接返回注入的路线', async () => {
+    const r = await generatePointToPointRoute([0, 0], [1, 1], {
+      fetchRoute: async () => ({ kind: 'point_to_point', coordinates: [[0, 0], [1, 1]], distanceM: 3200 })
+    })
+    expect(r.kind).toBe('point_to_point')
+    expect(r.distanceM).toBe(3200)
   })
 })
