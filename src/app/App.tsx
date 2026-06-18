@@ -79,9 +79,11 @@ export default function App() {
     if (!route) return
     const blob = new Blob([routeToGpx(route, 'RunCoach 路线')], { type: 'application/gpx+xml' })
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(blob)
+    a.href = url
     a.download = 'runcoach-route.gpx'
     a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
