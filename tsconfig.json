@@ -9,8 +9,9 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
+      "@/*": ["src/*"],
       "@app/*": ["src/app/*"],
-      "@shared/*": ["src/shared/*"]
+      "@runs/*": ["src/runs/*"]
     }
   },
   "include": ["src/**/*"]

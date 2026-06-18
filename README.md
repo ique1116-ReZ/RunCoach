@@ -17,6 +17,8 @@ VITE_MAPTILER_KEY=你的key
 
 默认使用 MapTiler `streets-v2` 样式。请确保配置了 `VITE_MAPTILER_KEY`。
 
+`VITE_ORS_KEY=你的 OpenRouteService key`
+
 ## 功能
 
 - 本地导入最多 2 个 GPX / FIT 文件
