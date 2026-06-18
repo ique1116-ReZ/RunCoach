@@ -51,3 +51,33 @@ export const postOrs = async (body: object): Promise<any> => {
   }
   return res.json()
 }
+
+const TOLERANCE = 0.05
+const MAX_ROUNDS = 3
+
+export const generateLoopRoute = async (
+  start: LngLat,
+  distanceKm: number,
+  seed = 1,
+  deps: { fetchRoute?: (lengthM: number, seed: number) => Promise<RouteResult> } = {}
+): Promise<RouteResult> => {
+  const fetchRoute =
+    deps.fetchRoute ??
+    (async (lengthM: number, s: number) =>
+      parseGeoJson(await postOrs(buildRoundTripBody(start, lengthM, s)), 'loop'))
+
+  const target = distanceKm * 1000
+  let requested = target
+  let best: RouteResult | null = null
+
+  for (let round = 0; round < MAX_ROUNDS; round += 1) {
+    const result = await fetchRoute(Math.round(requested), seed)
+    const off = Math.abs(result.distanceM - target) / target
+    if (off <= TOLERANCE) return result
+    if (!best || Math.abs(result.distanceM - target) < Math.abs(best.distanceM - target)) {
+      best = result
+    }
+    requested = requested * (target / result.distanceM)
+  }
+  return best as RouteResult
+}
