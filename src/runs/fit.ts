@@ -124,6 +124,7 @@ export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Pro
     const lat = normalizeCoord(latRaw, true)
     const lon = normalizeCoord(lonRaw, false)
     const time = record.timestamp ? new Date(record.timestamp).getTime() : undefined
+    if (lat === undefined || lon === undefined || time === undefined) continue
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || !time) continue
 
     const metrics: Record<string, number | undefined> = {}
