@@ -5,6 +5,7 @@ export type RouteResult = {
   coordinates: LngLat[]
   distanceM: number
   ascentM?: number
+  elevations?: number[]
 }
 
 export const buildRoundTripBody = (start: LngLat, lengthM: number, seed: number, points = 5) => ({
@@ -25,7 +26,10 @@ export const parseGeoJson = (json: any, kind: RouteResult['kind']): RouteResult 
   if (!feature?.geometry?.coordinates?.length) {
     throw new Error('ORS 未返回可用路线')
   }
-  const coordinates: LngLat[] = feature.geometry.coordinates.map(
+  const raw: number[][] = feature.geometry.coordinates
+  const has3d = raw.some(c => c.length >= 3 && Number.isFinite(c[2]))
+  const elevations = has3d ? raw.map(c => c[2]) : undefined
+  const coordinates: LngLat[] = raw.map(
     (c: number[]) => [c[0], c[1]] as LngLat
   )
   const summary = feature.properties?.summary ?? {}
@@ -33,7 +37,8 @@ export const parseGeoJson = (json: any, kind: RouteResult['kind']): RouteResult 
     kind,
     coordinates,
     distanceM: Number(summary.distance ?? 0),
-    ascentM: summary.ascent !== undefined ? Number(summary.ascent) : undefined
+    ascentM: summary.ascent !== undefined ? Number(summary.ascent) : undefined,
+    elevations
   }
 }
 

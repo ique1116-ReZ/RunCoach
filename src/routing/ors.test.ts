@@ -83,3 +83,19 @@ describe('generatePointToPointRoute', () => {
     expect(r.distanceM).toBe(3200)
   })
 })
+
+describe('parseGeoJson 高程', () => {
+  it('3D 坐标时收集 elevations', () => {
+    const json = { features: [{
+      geometry: { coordinates: [[121.5, 31.2, 4], [121.51, 31.21, 6.5]] },
+      properties: { summary: { distance: 1000, ascent: 3 } }
+    }] }
+    const r = parseGeoJson(json, 'loop')
+    expect(r.coordinates).toEqual([[121.5, 31.2], [121.51, 31.21]])
+    expect(r.elevations).toEqual([4, 6.5])
+  })
+  it('2D 坐标时 elevations 为 undefined', () => {
+    const json = { features: [{ geometry: { coordinates: [[1, 2], [3, 4]] }, properties: { summary: {} } }] }
+    expect(parseGeoJson(json, 'loop').elevations).toBeUndefined()
+  })
+})
