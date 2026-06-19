@@ -7,6 +7,13 @@ describe('runAgent', () => {
     expect(COACH_SYSTEM_PROMPT).toMatch(/拒绝|只能/)
   })
 
+  it('系统提示词覆盖地形/起点引导与取消处理', () => {
+    expect(COACH_SYSTEM_PROMPT).toMatch(/越野|地形/)
+    expect(COACH_SYSTEM_PROMPT).toContain('ask_run_terrain')
+    expect(COACH_SYSTEM_PROMPT).toContain('ask_start_point')
+    expect(COACH_SYSTEM_PROMPT).toMatch(/取消/)
+  })
+
   it('模型先调工具、再据结果给最终回复', async () => {
     const complete = vi.fn()
       .mockResolvedValueOnce({ message: { role: 'assistant', content: '', tool_calls: [

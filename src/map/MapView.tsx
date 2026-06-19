@@ -7,7 +7,7 @@ import type { LngLat } from '@/routing/ors'
 
 const styleUrl = `https://api.maptiler.com/maps/streets-v2/style.json?key=${import.meta.env.VITE_MAPTILER_KEY}`
 
-export const MapView = ({ onReady, onMapClick }: { onReady: (m: maplibregl.Map) => void; onMapClick: (c: LngLat) => void }) => {
+export const MapView = ({ onReady, onMapClick, picking }: { onReady: (m: maplibregl.Map) => void; onMapClick: (c: LngLat) => void; picking?: boolean }) => {
   const ref = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   useEffect(() => {
@@ -18,5 +18,5 @@ export const MapView = ({ onReady, onMapClick }: { onReady: (m: maplibregl.Map) 
     map.on('click', (e) => onMapClick([e.lngLat.lng, e.lngLat.lat]))
     return () => { map.remove(); mapRef.current = null }
   }, [])
-  return <div ref={ref} style={{ position: 'absolute', inset: 0 }} />
+  return <div ref={ref} style={{ position: 'absolute', inset: 0, cursor: picking ? 'crosshair' : '' }} />
 }

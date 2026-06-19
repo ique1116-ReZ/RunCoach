@@ -24,3 +24,15 @@ describe('routeToGpx', () => {
     expect(run.points.length).toBe(3)
   })
 })
+
+describe('routeToGpx 高程', () => {
+  it('有 elevations 时写 <ele>', () => {
+    const xml = routeToGpx({ kind: 'loop', coordinates: [[121.5, 31.2], [121.51, 31.21]], distanceM: 1000, elevations: [4, 6.5] } as any, 'ele 路线')
+    expect(xml).toContain('<ele>4</ele>')
+    expect(xml).toContain('<ele>6.5</ele>')
+  })
+  it('无 elevations 时不写 <ele>', () => {
+    const xml = routeToGpx({ kind: 'loop', coordinates: [[121.5, 31.2]], distanceM: 100 } as any, 'x')
+    expect(xml).not.toContain('<ele>')
+  })
+})
