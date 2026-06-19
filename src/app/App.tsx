@@ -66,7 +66,9 @@ export default function App() {
         // Fix 3: fit map to route
         fitToCoords(map, r.coordinates)
       }
-    }
+    },
+    requestTerrain: async () => null,
+    requestStartPoint: async () => null
   }), [])
 
   const { turns, send } = useChatAgent({ config, ctx })

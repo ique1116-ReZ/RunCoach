@@ -1,4 +1,4 @@
-import { generateLoopRoute, generatePointToPointRoute, type RouteResult, type LngLat } from '@/routing/ors'
+import { generateLoopRoute, generatePointToPointRoute, type RouteResult, type LngLat, type RunProfile } from '@/routing/ors'
 import { geocodePlace } from '@/routing/geocode'
 import { buildRunDigest, buildComparisonDigest } from '@/analysis/digest'
 import type { Run } from '@runs/types'
@@ -6,9 +6,11 @@ import type { Run } from '@runs/types'
 export type ToolContext = {
   runs: Map<string, Run>
   onRoute: (r: RouteResult) => void
+  requestTerrain: () => Promise<'trail' | 'road' | null>
+  requestStartPoint: () => Promise<LngLat | null>
   // 测试注入用，可选：
-  _fetchLoop?: (start: LngLat, km: number, seed: number) => Promise<RouteResult>
-  _fetchP2P?: (start: LngLat, end: LngLat) => Promise<RouteResult>
+  _fetchLoop?: (start: LngLat, km: number, seed: number, profile: RunProfile) => Promise<RouteResult>
+  _fetchP2P?: (start: LngLat, end: LngLat, profile: RunProfile) => Promise<RouteResult>
 }
 
 export const toolSchemas = [
@@ -22,9 +24,10 @@ export const toolSchemas = [
         properties: {
           start: { type: 'array', items: { type: 'number' }, description: '[经度, 纬度]' },
           distance_km: { type: 'number', description: '目标距离（公里），需 > 0' },
-          seed: { type: 'number', description: '换一条不同走法时改变此种子' }
+          seed: { type: 'number', description: '换一条不同走法时改变此种子' },
+          terrain: { type: 'string', enum: ['trail', 'road'], description: '越野=trail（山路步道），路跑=road（道路）' }
         },
-        required: ['start', 'distance_km']
+        required: ['start', 'distance_km', 'terrain']
       }
     }
   },
@@ -37,9 +40,10 @@ export const toolSchemas = [
         type: 'object',
         properties: {
           start: { type: 'array', items: { type: 'number' }, description: '[经度, 纬度]' },
-          end: { type: 'array', items: { type: 'number' }, description: '[经度, 纬度]' }
+          end: { type: 'array', items: { type: 'number' }, description: '[经度, 纬度]' },
+          terrain: { type: 'string', enum: ['trail', 'road'], description: '越野=trail（山路步道），路跑=road（道路）' }
         },
-        required: ['start', 'end']
+        required: ['start', 'end', 'terrain']
       }
     }
   },
@@ -82,6 +86,22 @@ export const toolSchemas = [
         required: ['run_id_a', 'run_id_b']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'ask_run_terrain',
+      description: '当用户没说要越野还是路跑时，弹卡片询问。返回 {terrain} 或 {cancelled:true}',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'ask_start_point',
+      description: '当起点未知时，弹卡片让用户选当前位置或手动在地图选点。返回 {start:[lng,lat]} 或 {cancelled:true}',
+      parameters: { type: 'object', properties: {} }
+    }
   }
 ]
 
@@ -90,18 +110,28 @@ const fail = (msg: string) => JSON.stringify({ error: msg })
 
 export const executeTool = async (name: string, args: any, ctx: ToolContext): Promise<string> => {
   try {
+    if (name === 'ask_run_terrain') {
+      const t = await ctx.requestTerrain()
+      return t ? ok({ terrain: t }) : ok({ cancelled: true })
+    }
+    if (name === 'ask_start_point') {
+      const c = await ctx.requestStartPoint()
+      return c ? ok({ start: c }) : ok({ cancelled: true })
+    }
     if (name === 'generate_loop_route') {
       if (!(args.distance_km > 0)) return fail('距离必须大于 0')
+      const profile: RunProfile = args.terrain === 'trail' ? 'foot-hiking' : 'foot-walking'
       const route = ctx._fetchLoop
-        ? await ctx._fetchLoop(args.start, args.distance_km, args.seed ?? 1)
-        : await generateLoopRoute(args.start, args.distance_km, args.seed ?? 1)
+        ? await ctx._fetchLoop(args.start, args.distance_km, args.seed ?? 1, profile)
+        : await generateLoopRoute(args.start, args.distance_km, profile, args.seed ?? 1)
       ctx.onRoute(route)
       return ok({ distance_km: +(route.distanceM / 1000).toFixed(2), ascent_m: route.ascentM, points: route.coordinates.length })
     }
     if (name === 'generate_point_to_point_route') {
+      const profile: RunProfile = args.terrain === 'trail' ? 'foot-hiking' : 'foot-walking'
       const route = ctx._fetchP2P
-        ? await ctx._fetchP2P(args.start, args.end)
-        : await generatePointToPointRoute(args.start, args.end)
+        ? await ctx._fetchP2P(args.start, args.end, profile)
+        : await generatePointToPointRoute(args.start, args.end, profile)
       ctx.onRoute(route)
       return ok({ distance_km: +(route.distanceM / 1000).toFixed(2), ascent_m: route.ascentM })
     }
