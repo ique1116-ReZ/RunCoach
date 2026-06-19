@@ -1,5 +1,7 @@
 export type LngLat = [number, number]
 
+export type RunProfile = 'foot-walking' | 'foot-hiking'
+
 export type RouteResult = {
   kind: 'loop' | 'point_to_point'
   coordinates: LngLat[]
@@ -18,8 +20,6 @@ export const buildDirectionsBody = (start: LngLat, end: LngLat) => ({
   coordinates: [start, end],
   elevation: true
 })
-
-const ORS_BASE = 'https://api.openrouteservice.org/v2/directions/foot-walking'
 
 export const parseGeoJson = (json: any, kind: RouteResult['kind']): RouteResult => {
   const feature = json?.features?.[0]
@@ -42,10 +42,10 @@ export const parseGeoJson = (json: any, kind: RouteResult['kind']): RouteResult 
   }
 }
 
-export const postOrs = async (body: object): Promise<any> => {
+export const postOrs = async (body: object, profile: RunProfile = 'foot-walking'): Promise<any> => {
   const key = import.meta.env.VITE_ORS_KEY
   if (!key) throw new Error('缺少 VITE_ORS_KEY，请在 .env.local 配置')
-  const res = await fetch(`${ORS_BASE}/geojson`, {
+  const res = await fetch(`https://api.openrouteservice.org/v2/directions/${profile}/geojson`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: key },
     body: JSON.stringify(body)
@@ -63,13 +63,14 @@ const MAX_ROUNDS = 3
 export const generateLoopRoute = async (
   start: LngLat,
   distanceKm: number,
+  profile: RunProfile = 'foot-walking',
   seed = 1,
   deps: { fetchRoute?: (lengthM: number, seed: number) => Promise<RouteResult> } = {}
 ): Promise<RouteResult> => {
   const fetchRoute =
     deps.fetchRoute ??
     (async (lengthM: number, s: number) =>
-      parseGeoJson(await postOrs(buildRoundTripBody(start, lengthM, s)), 'loop'))
+      parseGeoJson(await postOrs(buildRoundTripBody(start, lengthM, s), profile), 'loop'))
 
   const target = distanceKm * 1000
   let requested = target
@@ -90,10 +91,11 @@ export const generateLoopRoute = async (
 export const generatePointToPointRoute = async (
   start: LngLat,
   end: LngLat,
+  profile: RunProfile = 'foot-walking',
   deps: { fetchRoute?: () => Promise<RouteResult> } = {}
 ): Promise<RouteResult> => {
   const fetchRoute =
     deps.fetchRoute ??
-    (async () => parseGeoJson(await postOrs(buildDirectionsBody(start, end)), 'point_to_point'))
+    (async () => parseGeoJson(await postOrs(buildDirectionsBody(start, end), profile), 'point_to_point'))
   return fetchRoute()
 }

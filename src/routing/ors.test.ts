@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { buildRoundTripBody, buildDirectionsBody, parseGeoJson, generateLoopRoute, generatePointToPointRoute } from './ors'
+import { describe, it, expect, vi } from 'vitest'
+import { postOrs, buildRoundTripBody, buildDirectionsBody, parseGeoJson, generateLoopRoute, generatePointToPointRoute } from './ors'
 
 describe('ORS request bodies', () => {
   it('round trip body 携带 length/seed/points 与 elevation', () => {
@@ -38,6 +38,18 @@ describe('parseGeoJson', () => {
   })
 })
 
+describe('postOrs profile', () => {
+  it('用对应 profile 的 URL', async () => {
+    vi.stubEnv('VITE_ORS_KEY', 'test-key')
+    const urls: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => { urls.push(url); return new Response(JSON.stringify({ features: [] }), { status: 200 }) }))
+    await postOrs({}, 'foot-hiking')
+    expect(urls[0]).toContain('/v2/directions/foot-hiking/geojson')
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+})
+
 const fakeRoute = (distanceM: number): any => ({
   kind: 'loop', coordinates: [[0, 0], [0.01, 0.01]], distanceM
 })
@@ -45,7 +57,7 @@ const fakeRoute = (distanceM: number): any => ({
 describe('generateLoopRoute 凑距离', () => {
   it('首轮即达标（±5% 内）直接返回', async () => {
     const calls: number[] = []
-    const r = await generateLoopRoute([0, 0], 5, 1, {
+    const r = await generateLoopRoute([0, 0], 5, 'foot-walking', 1, {
       fetchRoute: async (lengthM) => { calls.push(lengthM); return fakeRoute(4900) }
     })
     expect(r.distanceM).toBe(4900)
@@ -54,7 +66,7 @@ describe('generateLoopRoute 凑距离', () => {
 
   it('首轮偏短则按比例校正后重试', async () => {
     const lengths: number[] = []
-    const r = await generateLoopRoute([0, 0], 5, 1, {
+    const r = await generateLoopRoute([0, 0], 5, 'foot-walking', 1, {
       fetchRoute: async (lengthM) => {
         lengths.push(lengthM)
         return fakeRoute(lengths.length === 1 ? 4000 : 5050)
@@ -67,7 +79,7 @@ describe('generateLoopRoute 凑距离', () => {
   })
 
   it('3 轮都不达标则返回最接近者', async () => {
-    const r = await generateLoopRoute([0, 0], 5, 1, {
+    const r = await generateLoopRoute([0, 0], 5, 'foot-walking', 1, {
       fetchRoute: async () => fakeRoute(4000) // 永远偏短
     })
     expect(r.distanceM).toBe(4000) // 最接近（也是唯一）
@@ -76,7 +88,7 @@ describe('generateLoopRoute 凑距离', () => {
 
 describe('generatePointToPointRoute', () => {
   it('直接返回注入的路线', async () => {
-    const r = await generatePointToPointRoute([0, 0], [1, 1], {
+    const r = await generatePointToPointRoute([0, 0], [1, 1], 'foot-walking', {
       fetchRoute: async () => ({ kind: 'point_to_point', coordinates: [[0, 0], [1, 1]], distanceM: 3200 })
     })
     expect(r.kind).toBe('point_to_point')
