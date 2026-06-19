@@ -485,6 +485,11 @@ textarea {
   padding: 8px 10px;
 }
 
+.composer-actions {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .plus {
   appearance: none;
   border: 1px solid var(--panel-border);
@@ -502,9 +507,53 @@ textarea {
   transition: border-color 150ms, color 150ms;
 }
 
-.plus:hover {
+.plus:hover,
+.plus.open {
   border-color: var(--accent);
   color: var(--text);
+}
+
+.composer-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  min-width: 178px;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  backdrop-filter: var(--panel-blur);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.composer-menu-item {
+  appearance: none;
+  border: none;
+  width: 100%;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.composer-menu-item:hover,
+.composer-menu-item:focus-visible {
+  background: var(--field-bg);
+  outline: none;
+}
+
+.composer-menu-item small {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .composer-input {
@@ -582,3 +631,53 @@ input[type="range"] {
 }
 .pin-confirm button { appearance: none; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--field-bg); color: var(--text); padding: 6px 12px; cursor: pointer; font-size: 13px; }
 .pin-confirm button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── AI 正在输入指示器 ── */
+.bubble.assistant.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 13px;
+}
+.bubble.typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  display: inline-block;
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+.bubble.typing span:nth-child(2) { animation-delay: 0.15s; }
+.bubble.typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing-bounce {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* ── 路线预览卡：标题行 + 历史翻页 ── */
+.route-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.route-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.route-nav button {
+  appearance: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--field-bg);
+  color: var(--text);
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 150ms, color 150ms;
+}
+.route-nav button:hover:not(:disabled) { border-color: var(--accent); }
+.route-nav button:disabled { opacity: 0.35; cursor: default; }

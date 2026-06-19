@@ -25,7 +25,9 @@ export default function App() {
   const [mapReady, setMapReady] = useState(false)
   const [docked, setDocked] = useState(false)
   const [startCoord, setStartCoord] = useState<LngLat | null>(null)
-  const [route, setRoute] = useState<RouteResult | null>(null)
+  const [routes, setRoutes] = useState<RouteResult[]>([])   // 生成历史，"换一条"不覆盖
+  const [routeIdx, setRouteIdx] = useState(0)               // 当前预览/可下载的那条
+  const routesRef = useRef<RouteResult[]>([])               // 给 memo 化的 onRoute 用，避免陈旧闭包
   const [run, setRun] = useState<Run | null>(null)
   const [config, setConfig] = useState<LlmConfig | null>(loadConfig())
   const runs = useRef<Map<string, Run>>(new Map())
@@ -52,19 +54,33 @@ export default function App() {
   const requestTerrain = () => new Promise<'trail' | 'road' | null>(resolve => setTerrainResolve(() => resolve))
   const requestStartPoint = () => new Promise<LngLat | null>(resolve => { setStartMsg(''); setStartResolve(() => resolve) })
 
+  const paintRoute = (r: RouteResult) => {
+    const map = mapRef.current
+    if (map) { setRouteLine(map, r.coordinates); if (r.coordinates[0]) setStartPin(map, r.coordinates[0]); fitToCoords(map, r.coordinates) }
+  }
+
   const ctx: ToolContext = useMemo(() => ({
     runs: runs.current,
     onRoute: (r: RouteResult) => {
-      setRoute(r)
-      const map = mapRef.current
-      if (map) { setRouteLine(map, r.coordinates); if (r.coordinates[0]) setStartPin(map, r.coordinates[0]); fitToCoords(map, r.coordinates) }
+      routesRef.current = [...routesRef.current, r]
+      setRoutes(routesRef.current)
+      setRouteIdx(routesRef.current.length - 1)
+      paintRoute(r)
     },
     requestTerrain,
     requestStartPoint
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [])
 
-  const { turns, send } = useChatAgent({ config, ctx })
+  const goRoute = (i: number) => {
+    if (i < 0 || i >= routes.length) return
+    setRouteIdx(i)
+    paintRoute(routes[i])
+  }
+
+  const { turns, busy, send } = useChatAgent({ config, ctx })
+  // 卡片/选点活跃时是“等用户操作”，不算 AI 在思考；只有真正等模型时才显示输入动画
+  const cardActive = !!(terrainResolve || startResolve || picking)
 
   const currentStartContext = () => startCoord
     ? `已知当前定位坐标 ${JSON.stringify(startCoord)}（仅当用户明确要用当前位置/附近时直接用；否则起点未定，调 ask_start_point 让用户选）`
@@ -108,8 +124,9 @@ export default function App() {
   const cancelPin = () => { setPendingPin(null) }    // 重新点
 
   const downloadGpx = () => {
-    if (!route) return
-    const blob = new Blob([routeToGpx(route, 'RunCoach 路线')], { type: 'application/gpx+xml' })
+    const r = routes[routeIdx]
+    if (!r) return
+    const blob = new Blob([routeToGpx(r, 'RunCoach 路线')], { type: 'application/gpx+xml' })
     const a = document.createElement('a'); const url = URL.createObjectURL(blob)
     a.href = url; a.download = 'runcoach-route.gpx'; a.click(); URL.revokeObjectURL(url)
   }
@@ -132,11 +149,20 @@ export default function App() {
       )}
       {picking && pendingPin && <PinConfirm onConfirm={confirmPin} onCancel={cancelPin} />}
 
-      {route && (
+      {routes[routeIdx] && (
         <div className="route-card">
-          <h4>路线预览</h4>
-          <div className="row"><span>实际距离</span><b>{(route.distanceM / 1000).toFixed(2)} km</b></div>
-          {route.ascentM !== undefined && <div className="row"><span>累计爬升</span><b>{Math.round(route.ascentM)} m</b></div>}
+          <div className="route-card-head">
+            <h4>路线预览</h4>
+            {routes.length > 1 && (
+              <div className="route-nav">
+                <button disabled={routeIdx === 0} onClick={() => goRoute(routeIdx - 1)}>←</button>
+                <span>{routeIdx + 1}/{routes.length}</span>
+                <button disabled={routeIdx === routes.length - 1} onClick={() => goRoute(routeIdx + 1)}>→</button>
+              </div>
+            )}
+          </div>
+          <div className="row"><span>实际距离</span><b>{(routes[routeIdx].distanceM / 1000).toFixed(2)} km</b></div>
+          {routes[routeIdx].ascentM !== undefined && <div className="row"><span>累计爬升</span><b>{Math.round(routes[routeIdx].ascentM as number)} m</b></div>}
           <div className="card-btns">
             <button onClick={() => onSend('换一条')}>换一条</button>
             <button className="primary" onClick={downloadGpx}>下载 GPX</button>
@@ -146,7 +172,7 @@ export default function App() {
 
       {run && <ReplayBar run={run} map={mapRef.current} />}
 
-      <ChatDock turns={turns} docked={docked} onSend={onSend} onUpload={onUpload} />
+      <ChatDock turns={turns} docked={docked} thinking={busy && !cardActive} onSend={onSend} onUpload={onUpload} />
     </div>
   )
 }

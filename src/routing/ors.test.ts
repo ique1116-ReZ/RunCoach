@@ -23,7 +23,8 @@ describe('parseGeoJson', () => {
     const json = {
       features: [{
         geometry: { coordinates: [[121.5, 31.2, 4], [121.51, 31.21, 6]] },
-        properties: { summary: { distance: 5023.4, ascent: 38.2 } }
+        // 真实 ORS 形态：ascent/descent 在 properties 顶层，summary 只有 distance/duration
+        properties: { ascent: 38.2, descent: 38.2, summary: { distance: 5023.4, duration: 3000 } }
       }]
     }
     const r = parseGeoJson(json, 'loop')
