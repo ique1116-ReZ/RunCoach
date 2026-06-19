@@ -32,12 +32,15 @@ export const parseGeoJson = (json: any, kind: RouteResult['kind']): RouteResult 
   const coordinates: LngLat[] = raw.map(
     (c: number[]) => [c[0], c[1]] as LngLat
   )
-  const summary = feature.properties?.summary ?? {}
+  const props = feature.properties ?? {}
+  const summary = props.summary ?? {}
+  // ORS 把 ascent/descent 放在 properties 顶层（summary 里只有 distance/duration）
+  const ascentRaw = props.ascent ?? summary.ascent
   return {
     kind,
     coordinates,
     distanceM: Number(summary.distance ?? 0),
-    ascentM: summary.ascent !== undefined ? Number(summary.ascent) : undefined,
+    ascentM: ascentRaw !== undefined ? Number(ascentRaw) : undefined,
     elevations
   }
 }
