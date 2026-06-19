@@ -68,42 +68,6 @@ textarea {
   gap: 10px;
 }
 
-/* ── Start source segmented control ── */
-.start-seg {
-  display: flex;
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--panel-bg);
-  backdrop-filter: var(--panel-blur);
-}
-
-.start-seg button {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  padding: 7px 13px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 150ms, color 150ms;
-  border-right: 1px solid var(--panel-border);
-}
-
-.start-seg button:last-child {
-  border-right: none;
-}
-
-.start-seg button.on {
-  background: var(--accent);
-  color: #fff;
-}
-
-.start-seg button:not(.on):hover {
-  background: rgba(47, 109, 246, 0.14);
-  color: var(--text);
-}
-
 /* ── Gear button ── */
 .gear-btn {
   appearance: none;
@@ -583,66 +547,6 @@ textarea {
 
 .send:hover {
   background: #4a7ff7;
-}
-
-/* ── Place search bar (shown below top-right HUD when startSource=place) ── */
-.place-search {
-  position: absolute;
-  top: 58px;
-  right: 16px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--panel-bg);
-  backdrop-filter: var(--panel-blur);
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  padding: 7px 10px;
-}
-
-.place-search-input {
-  background: var(--field-bg);
-  border: 1px solid var(--field-border);
-  border-radius: 7px;
-  padding: 5px 9px;
-  color: var(--text);
-  outline: none;
-  font-size: 13px;
-  width: 180px;
-  transition: border-color 150ms;
-}
-
-.place-search-input::placeholder {
-  color: var(--text-muted);
-}
-
-.place-search-input:focus {
-  border-color: var(--accent);
-}
-
-.place-search-btn {
-  appearance: none;
-  border: 1px solid var(--panel-border);
-  border-radius: 7px;
-  background: var(--field-bg);
-  color: var(--text-muted);
-  padding: 5px 10px;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 150ms, color 150ms;
-}
-
-.place-search-btn:hover {
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.place-search-err {
-  font-size: 12px;
-  color: var(--orange);
-  white-space: nowrap;
 }
 
 /* ── Range input global ── */
