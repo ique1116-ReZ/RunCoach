@@ -64,7 +64,9 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [])
 
-  const { turns, send } = useChatAgent({ config, ctx })
+  const { turns, busy, send } = useChatAgent({ config, ctx })
+  // 卡片/选点活跃时是“等用户操作”，不算 AI 在思考；只有真正等模型时才显示输入动画
+  const cardActive = !!(terrainResolve || startResolve || picking)
 
   const currentStartContext = () => startCoord
     ? `已知当前定位坐标 ${JSON.stringify(startCoord)}（仅当用户明确要用当前位置/附近时直接用；否则起点未定，调 ask_start_point 让用户选）`
@@ -146,7 +148,7 @@ export default function App() {
 
       {run && <ReplayBar run={run} map={mapRef.current} />}
 
-      <ChatDock turns={turns} docked={docked} onSend={onSend} onUpload={onUpload} />
+      <ChatDock turns={turns} docked={docked} thinking={busy && !cardActive} onSend={onSend} onUpload={onUpload} />
     </div>
   )
 }
