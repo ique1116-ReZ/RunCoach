@@ -14,173 +14,123 @@ import type { Run } from '@runs/types'
 import { parseGpxFile } from '@runs/gpx'
 import { parseFitFile } from '@runs/fit'
 import { parseJsonFile } from '@runs/json'
-import { geocodePlace } from '@/routing/geocode'
+import { TerrainCard } from './TerrainCard'
+import { StartPointCard } from './StartPointCard'
+import { PinConfirm } from './PinConfirm'
 import { ReplayBar } from './ReplayBar'
 import './styles.css'
-
-type StartSource = 'current' | 'map' | 'place'
 
 export default function App() {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [docked, setDocked] = useState(false)
-  const [startSource, setStartSource] = useState<StartSource>('current')
   const [startCoord, setStartCoord] = useState<LngLat | null>(null)
   const [route, setRoute] = useState<RouteResult | null>(null)
   const [run, setRun] = useState<Run | null>(null)
   const [config, setConfig] = useState<LlmConfig | null>(loadConfig())
-  const [placeQuery, setPlaceQuery] = useState('')
-  const [placeError, setPlaceError] = useState('')
   const runs = useRef<Map<string, Run>>(new Map())
 
-  // Fix 1: Request geolocation on mount
+  // 引导卡片 / 选点状态
+  const [terrainResolve, setTerrainResolve] = useState<((t: 'trail' | 'road' | null) => void) | null>(null)
+  const [startResolve, setStartResolve] = useState<((c: LngLat | null) => void) | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [pendingPin, setPendingPin] = useState<LngLat | null>(null)
+  const [startMsg, setStartMsg] = useState('')
+
   useEffect(() => {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
-      pos => {
-        const coord: LngLat = [pos.coords.longitude, pos.coords.latitude]
-        setStartCoord(coord)
-      },
-      () => { /* denied or error — keep Shanghai fallback */ }
+      pos => setStartCoord([pos.coords.longitude, pos.coords.latitude]),
+      () => { /* denied — keep fallback */ }
     )
   }, [])
-
-  // Fix 1: flyTo once both geolocation coord and map are ready
   useEffect(() => {
-    if (!startCoord || !mapReady || !mapRef.current) return
-    // Only fly to geolocation coord when startSource is 'current'
-    if (startSource === 'current') {
-      mapRef.current.flyTo({ center: startCoord, zoom: 14 })
-    }
+    if (startCoord && mapReady && mapRef.current) mapRef.current.flyTo({ center: startCoord, zoom: 14 })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapReady, startCoord])
+  }, [mapReady])
+
+  const requestTerrain = () => new Promise<'trail' | 'road' | null>(resolve => setTerrainResolve(() => resolve))
+  const requestStartPoint = () => new Promise<LngLat | null>(resolve => { setStartMsg(''); setStartResolve(() => resolve) })
 
   const ctx: ToolContext = useMemo(() => ({
     runs: runs.current,
     onRoute: (r: RouteResult) => {
       setRoute(r)
       const map = mapRef.current
-      if (map) {
-        setRouteLine(map, r.coordinates)
-        if (r.coordinates[0]) setStartPin(map, r.coordinates[0])
-        // Fix 3: fit map to route
-        fitToCoords(map, r.coordinates)
-      }
+      if (map) { setRouteLine(map, r.coordinates); if (r.coordinates[0]) setStartPin(map, r.coordinates[0]); fitToCoords(map, r.coordinates) }
     },
-    requestTerrain: async () => null,
-    requestStartPoint: async () => null
+    requestTerrain,
+    requestStartPoint
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [])
 
   const { turns, send } = useChatAgent({ config, ctx })
 
-  const currentStartContext = () => {
-    if (startCoord) return `用户选定起点坐标 ${JSON.stringify(startCoord)}`
-    return '用户未指定起点，可视为当前位置（地图中心）'
-  }
+  const currentStartContext = () => startCoord
+    ? `已知当前定位坐标 ${JSON.stringify(startCoord)}（仅当用户明确要用当前位置/附近时直接用；否则起点未定，调 ask_start_point 让用户选）`
+    : '当前定位不可用；起点未定，需要时调 ask_start_point 让用户选'
 
-  const onSend = (text: string) => {
-    if (!docked) setDocked(true)
-    void send(text, currentStartContext())
-  }
+  const onSend = (text: string) => { if (!docked) setDocked(true); void send(text, currentStartContext()) }
 
   const onUpload = async (file: File) => {
     if (!docked) setDocked(true)
     const text = file.name.endsWith('.fit') ? '' : await file.text()
     const parsed: Run = file.name.endsWith('.fit')
       ? await parseFitFile(await file.arrayBuffer(), file.name)
-      : file.name.endsWith('.json')
-        ? await parseJsonFile(text, file.name)
-        : parseGpxFile(text, file.name)
+      : file.name.endsWith('.json') ? await parseJsonFile(text, file.name) : parseGpxFile(text, file.name)
     runs.current.set(parsed.id, parsed)
     setRun(parsed)
     const map = mapRef.current
-    if (map) {
-      const trackCoords = parsed.points.map(p => [p.lon, p.lat] as LngLat)
-      setTrack(map, trackCoords)
-      // Fix 3: fit map to uploaded track
-      fitToCoords(map, trackCoords)
-    }
+    if (map) { const t = parsed.points.map(p => [p.lon, p.lat] as LngLat); setTrack(map, t); fitToCoords(map, t) }
     void send(`[上传训练] ${file.name}，请复盘`, `run_id=${parsed.id}`)
   }
 
   const onMapClick = (c: LngLat) => {
-    if (startSource === 'map') {
-      setStartCoord(c)
-      if (mapRef.current) setStartPin(mapRef.current, c)
-    }
+    if (picking) { setPendingPin(c); if (mapRef.current) setStartPin(mapRef.current, c) }
   }
 
-  // Fix 2: place search submit
-  const onPlaceSearch = async () => {
-    setPlaceError('')
-    if (!placeQuery.trim()) return
-    try {
-      const hits = await geocodePlace(placeQuery.trim())
-      if (hits.length === 0) {
-        setPlaceError('未找到该地点')
-        return
-      }
-      const center = hits[0].center
-      setStartCoord(center)
-      const map = mapRef.current
-      if (map) {
-        setStartPin(map, center)
-        map.flyTo({ center, zoom: 14 })
-      }
-    } catch {
-      setPlaceError('搜索失败，请重试')
-    }
+  // 卡片回调
+  const pickTerrain = (t: 'trail' | 'road') => { terrainResolve?.(t); setTerrainResolve(null) }
+  const cancelTerrain = () => { terrainResolve?.(null); setTerrainResolve(null) }
+
+  const pickCurrent = () => {
+    if (startCoord) { startResolve?.(startCoord); setStartResolve(null); return }
+    if (!navigator.geolocation) { setStartMsg('定位不可用，请改用手动选点'); return }
+    setStartMsg('正在定位…')
+    navigator.geolocation.getCurrentPosition(
+      pos => { const c: LngLat = [pos.coords.longitude, pos.coords.latitude]; setStartCoord(c); startResolve?.(c); setStartResolve(null) },
+      () => setStartMsg('定位不可用，请改用手动选点')
+    )
   }
+  const pickManual = () => { setPicking(true) }      // 隐藏起点卡、进入选点；startResolve 保留
+  const cancelStart = () => { startResolve?.(null); setStartResolve(null); setPicking(false); setPendingPin(null) }
+  const confirmPin = () => { if (pendingPin) { startResolve?.(pendingPin); setStartResolve(null); setPicking(false); setPendingPin(null) } }
+  const cancelPin = () => { setPendingPin(null) }    // 重新点
 
   const downloadGpx = () => {
     if (!route) return
     const blob = new Blob([routeToGpx(route, 'RunCoach 路线')], { type: 'application/gpx+xml' })
-    const a = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    a.href = url
-    a.download = 'runcoach-route.gpx'
-    a.click()
-    URL.revokeObjectURL(url)
+    const a = document.createElement('a'); const url = URL.createObjectURL(blob)
+    a.href = url; a.download = 'runcoach-route.gpx'; a.click(); URL.revokeObjectURL(url)
   }
 
   return (
     <div className="app-root">
-      <MapView onReady={m => { mapRef.current = m; setMapReady(true) }} onMapClick={onMapClick} />
+      <MapView onReady={m => { mapRef.current = m; setMapReady(true) }} onMapClick={onMapClick} picking={picking} />
 
       <div className="top-right">
-        <div className="start-seg">
-          {(['current', 'map', 'place'] as StartSource[]).map(s => (
-            <button key={s} className={startSource === s ? 'on' : ''} onClick={() => setStartSource(s)}>
-              {s === 'current' ? '📍当前' : s === 'map' ? '🗺选点' : '🔎地名'}
-            </button>
-          ))}
-        </div>
         <SettingsGear onSaved={setConfig} />
       </div>
 
-      {/* Fix 2: place search input, shown when startSource === 'place' */}
-      {startSource === 'place' && (
-        <div className="place-search">
-          <input
-            className="place-search-input"
-            type="text"
-            placeholder="输入地名，按 Enter 搜索"
-            value={placeQuery}
-            onChange={e => { setPlaceQuery(e.target.value); setPlaceError('') }}
-            onKeyDown={e => { if (e.key === 'Enter') void onPlaceSearch() }}
-          />
-          <button className="place-search-btn" onClick={() => void onPlaceSearch()}>搜索</button>
-          {placeError && <span className="place-search-err">{placeError}</span>}
-        </div>
-      )}
+      {terrainResolve && <TerrainCard onPick={pickTerrain} onCancel={cancelTerrain} />}
+      {startResolve && !picking && <StartPointCard onCurrent={pickCurrent} onManual={pickManual} onCancel={cancelStart} message={startMsg} />}
+      {picking && pendingPin && <PinConfirm onConfirm={confirmPin} onCancel={cancelPin} />}
 
       {route && (
         <div className="route-card">
           <h4>路线预览</h4>
           <div className="row"><span>实际距离</span><b>{(route.distanceM / 1000).toFixed(2)} km</b></div>
-          {route.ascentM !== undefined && (
-            <div className="row"><span>累计爬升</span><b>{Math.round(route.ascentM)} m</b></div>
-          )}
+          {route.ascentM !== undefined && <div className="row"><span>累计爬升</span><b>{Math.round(route.ascentM)} m</b></div>}
           <div className="card-btns">
             <button onClick={() => onSend('换一条')}>换一条</button>
             <button className="primary" onClick={downloadGpx}>下载 GPX</button>
