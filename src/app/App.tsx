@@ -124,6 +124,12 @@ export default function App() {
 
       {terrainResolve && <TerrainCard onPick={pickTerrain} onCancel={cancelTerrain} />}
       {startResolve && !picking && <StartPointCard onCurrent={pickCurrent} onManual={pickManual} onCancel={cancelStart} message={startMsg} />}
+      {picking && !pendingPin && (
+        <div className="pin-confirm">
+          <span>在地图上点选起点…</span>
+          <button onClick={cancelStart}>✗ 取消</button>
+        </div>
+      )}
       {picking && pendingPin && <PinConfirm onConfirm={confirmPin} onCancel={cancelPin} />}
 
       {route && (
