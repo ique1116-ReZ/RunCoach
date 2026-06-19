@@ -1,5 +1,5 @@
 // src/map/layers.ts
-import type maplibregl from 'maplibre-gl'
+import maplibregl from 'maplibre-gl'
 import type { GeoJSON } from 'geojson'
 import type { LngLat } from '@/routing/ors'
 
@@ -31,3 +31,12 @@ export const setTrack = (map: maplibregl.Map, coords: LngLat[]) => setSource(map
 export const setStartPin = (map: maplibregl.Map, coord: LngLat | null) => setSource(map, 'start', pointGeo(coord))
 export const setRunnerMarker = (map: maplibregl.Map, coord: LngLat | null) => setSource(map, 'runner', pointGeo(coord))
 export const clearRoute = (map: maplibregl.Map) => { setRouteLine(map, []); setStartPin(map, null) }
+
+export const fitToCoords = (map: maplibregl.Map, coords: LngLat[]) => {
+  if (coords.length === 0) return
+  const bounds = coords.reduce(
+    (b, c) => b.extend(c),
+    new maplibregl.LngLatBounds(coords[0], coords[0])
+  )
+  map.fitBounds(bounds, { padding: 60, maxZoom: 16 })
+}
