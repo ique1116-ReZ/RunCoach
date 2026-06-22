@@ -1,12 +1,18 @@
 // src/settings/SettingsGear.tsx
 import { useState } from 'react'
 import { type LlmConfig, type LlmProvider, llmProviderMeta, testApiKey, saveConfig, loadConfig } from '@/llm/provider'
+import { saveHomeBackground, type HomeBackground } from '@/app/preferences'
 
-export const SettingsGear = ({ onSaved }: { onSaved: (c: LlmConfig) => void }) => {
+export const SettingsGear = ({ onSaved, homeBackground, onHomeBackgroundChange }: {
+  onSaved: (c: LlmConfig) => void
+  homeBackground: HomeBackground
+  onHomeBackgroundChange: (value: HomeBackground) => void
+}) => {
   const [open, setOpen] = useState(false)
   const [cfg, setCfg] = useState<LlmConfig>(
     loadConfig() ?? { provider: 'kimi', model: llmProviderMeta.kimi.defaultModel, apiKey: '' }
   )
+  const [bg, setBg] = useState<HomeBackground>(homeBackground)
   const [show, setShow] = useState(false)
   const [status, setStatus] = useState<string>('')
 
@@ -17,7 +23,14 @@ export const SettingsGear = ({ onSaved }: { onSaved: (c: LlmConfig) => void }) =
     const r = await testApiKey(cfg)
     setStatus(r.ok ? '✓ key 有效' : `✗ 无效：${r.error}`)
   }
-  const onSave = () => { saveConfig(cfg); onSaved(cfg); setStatus('已保存'); setOpen(false) }
+  const onSave = () => {
+    saveConfig(cfg)
+    saveHomeBackground(bg)
+    onSaved(cfg)
+    onHomeBackgroundChange(bg)
+    setStatus('已保存')
+    setOpen(false)
+  }
 
   return (
     <>
@@ -36,6 +49,11 @@ export const SettingsGear = ({ onSaved }: { onSaved: (c: LlmConfig) => void }) =
             <input type={show ? 'text' : 'password'} value={cfg.apiKey} onChange={e => setCfg({ ...cfg, apiKey: e.target.value })} />
             <button onClick={() => setShow(v => !v)}>{show ? '隐藏' : '显示'}</button>
           </div>
+          <label>首页背景</label>
+          <select value={bg} onChange={e => { const value = e.target.value as HomeBackground; setBg(value); onHomeBackgroundChange(value) }}>
+            <option value="contour">等高线地图</option>
+            <option value="dither">Dither 点阵</option>
+          </select>
           <div className="gear-actions">
             <button onClick={onTest}>测试</button>
             <button className="primary" onClick={onSave}>保存</button>

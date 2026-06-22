@@ -108,6 +108,36 @@ export const toolSchemas = [
 const ok = (o: unknown) => JSON.stringify(o)
 const fail = (msg: string) => JSON.stringify({ error: msg })
 
+const roadLoopScore = (route: RouteResult, targetKm: number) => {
+  const targetM = targetKm * 1000
+  const distanceOff = targetM > 0 ? Math.abs(route.distanceM - targetM) / targetM : 1
+  const ascentPerKm = (route.ascentM ?? 0) / Math.max(route.distanceM / 1000, 0.1)
+  // 路跑宁可距离略有误差，也优先少爬升；约 8m/km 内基本视作平路。
+  return distanceOff * 1.2 + ascentPerKm / 8
+}
+
+const generateRoadLoopRoute = async (
+  args: any,
+  ctx: ToolContext,
+  profile: RunProfile
+) => {
+  const seed = args.seed ?? 1
+  const seeds = [seed, seed + 7, seed + 17]
+  const routes: RouteResult[] = []
+  for (const candidateSeed of seeds) {
+    const route = ctx._fetchLoop
+      ? await ctx._fetchLoop(args.start, args.distance_km, candidateSeed, profile)
+      : await generateLoopRoute(args.start, args.distance_km, profile, candidateSeed)
+    routes.push(route)
+    const ascentPerKm = (route.ascentM ?? 0) / Math.max(route.distanceM / 1000, 0.1)
+    const distanceOff = Math.abs(route.distanceM - args.distance_km * 1000) / (args.distance_km * 1000)
+    if (route.ascentM !== undefined && ascentPerKm <= 8 && distanceOff <= 0.05) break
+  }
+  return routes.reduce((best, route) =>
+    roadLoopScore(route, args.distance_km) < roadLoopScore(best, args.distance_km) ? route : best
+  )
+}
+
 export const executeTool = async (name: string, args: any, ctx: ToolContext): Promise<string> => {
   try {
     if (name === 'ask_run_terrain') {
@@ -121,11 +151,19 @@ export const executeTool = async (name: string, args: any, ctx: ToolContext): Pr
     if (name === 'generate_loop_route') {
       if (!(args.distance_km > 0)) return fail('距离必须大于 0')
       const profile: RunProfile = args.terrain === 'trail' ? 'foot-hiking' : 'foot-walking'
-      const route = ctx._fetchLoop
-        ? await ctx._fetchLoop(args.start, args.distance_km, args.seed ?? 1, profile)
-        : await generateLoopRoute(args.start, args.distance_km, profile, args.seed ?? 1)
+      const route = args.terrain === 'trail'
+        ? (ctx._fetchLoop
+          ? await ctx._fetchLoop(args.start, args.distance_km, args.seed ?? 1, profile)
+          : await generateLoopRoute(args.start, args.distance_km, profile, args.seed ?? 1))
+        : await generateRoadLoopRoute(args, ctx, profile)
       ctx.onRoute(route)
-      return ok({ distance_km: +(route.distanceM / 1000).toFixed(2), ascent_m: route.ascentM, points: route.coordinates.length })
+      return ok({
+        distance_km: +(route.distanceM / 1000).toFixed(2),
+        ascent_m: route.ascentM,
+        ascent_per_km: route.ascentM !== undefined ? +(route.ascentM / Math.max(route.distanceM / 1000, 0.1)).toFixed(1) : undefined,
+        flat_priority: args.terrain === 'road',
+        points: route.coordinates.length
+      })
     }
     if (name === 'generate_point_to_point_route') {
       const profile: RunProfile = args.terrain === 'trail' ? 'foot-hiking' : 'foot-walking'

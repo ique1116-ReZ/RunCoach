@@ -18,6 +18,8 @@ import { TerrainCard } from './TerrainCard'
 import { StartPointCard } from './StartPointCard'
 import { PinConfirm } from './PinConfirm'
 import { ReplayBar } from './ReplayBar'
+import { DitherMapBackdrop } from './DitherMapBackdrop'
+import { loadHomeBackground, type HomeBackground } from './preferences'
 import './styles.css'
 
 export default function App() {
@@ -30,6 +32,7 @@ export default function App() {
   const routesRef = useRef<RouteResult[]>([])               // 给 memo 化的 onRoute 用，避免陈旧闭包
   const [run, setRun] = useState<Run | null>(null)
   const [config, setConfig] = useState<LlmConfig | null>(loadConfig())
+  const [homeBackground, setHomeBackground] = useState<HomeBackground>(loadHomeBackground())
   const runs = useRef<Map<string, Run>>(new Map())
 
   // 引导卡片 / 选点状态
@@ -134,9 +137,15 @@ export default function App() {
   return (
     <div className="app-root">
       <MapView onReady={m => { mapRef.current = m; setMapReady(true) }} onMapClick={onMapClick} picking={picking} />
+      <DitherMapBackdrop active={!docked || !mapReady} mode={homeBackground} />
+      {!docked && (
+        <div className="home-logo" aria-hidden="true">
+          <img src="/run-ai-coach-logo.png" alt="" />
+        </div>
+      )}
 
       <div className="top-right">
-        <SettingsGear onSaved={setConfig} />
+        <SettingsGear onSaved={setConfig} homeBackground={homeBackground} onHomeBackgroundChange={setHomeBackground} />
       </div>
 
       {terrainResolve && <TerrainCard onPick={pickTerrain} onCancel={cancelTerrain} />}
@@ -172,7 +181,14 @@ export default function App() {
 
       {run && <ReplayBar run={run} map={mapRef.current} />}
 
-      <ChatDock turns={turns} docked={docked} thinking={busy && !cardActive} onSend={onSend} onUpload={onUpload} />
+      <ChatDock
+        turns={turns}
+        docked={docked}
+        thinking={busy && !cardActive}
+        thinkingLabel="正在理解需求并准备跑步工具…"
+        onSend={onSend}
+        onUpload={onUpload}
+      />
     </div>
   )
 }

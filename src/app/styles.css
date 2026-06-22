@@ -7,17 +7,18 @@
 :root {
   color-scheme: dark;
   font-family: "IBM Plex Sans", "SF Pro Text", system-ui, sans-serif;
-  --accent:        #2f6df6;
+  --accent:        #7aa7ff;
+  --accent-strong: #4f7df3;
   --green:         #36d399;
   --orange:        #f2994a;
-  --text:          #e6eef7;
-  --text-muted:    #9fb3c8;
-  --panel-bg:      #111b27ee;
-  --panel-border:  #26384c;
+  --text:          #f1f5f7;
+  --text-muted:    #9ca8b2;
+  --panel-bg:      rgba(7, 10, 14, 0.84);
+  --panel-border:  rgba(218, 226, 232, 0.14);
   --panel-radius:  14px;
-  --panel-blur:    blur(6px);
-  --field-bg:      #0e1824;
-  --field-border:  #26384c;
+  --panel-blur:    blur(18px);
+  --field-bg:      rgba(6, 9, 13, 0.78);
+  --field-border:  rgba(220, 228, 234, 0.12);
 }
 
 *,
@@ -35,7 +36,7 @@ body,
 }
 
 body {
-  background: #0e1824;
+  background: #010203;
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
@@ -49,12 +50,157 @@ textarea {
   color: inherit;
 }
 
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes centered-panel-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(0.985); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes bottom-panel-in {
+  from { opacity: 0; transform: translate(-50%, 8px) scale(0.985); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes logo-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 10px)) scale(0.985); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes menu-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes map-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.72); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ── App root: map fills screen, overlays stack on top ── */
 .app-root {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+.map-shell,
+.map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.map-shell {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    #101821;
+  background-size: 52px 52px;
+}
+
+.map-status {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 2;
+  max-width: min(360px, calc(100% - 36px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  backdrop-filter: var(--panel-blur);
+  color: var(--text);
+  animation: panel-in 220ms ease-out;
+}
+
+.map-status.error {
+  border-color: rgba(242, 153, 74, 0.55);
+}
+
+.map-status-pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: map-pulse 1.3s ease-in-out infinite;
+}
+
+.map-status.error .map-status-pulse {
+  background: var(--orange);
+}
+
+.map-status strong,
+.map-status span {
+  display: block;
+}
+
+.map-status strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.map-status span {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dither-map-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 520ms ease;
+}
+
+.dither-map-bg.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dither-map-bg.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-logo {
+  position: absolute;
+  z-index: 8;
+  top: 40%;
+  left: 50%;
+  width: min(760px, 62vw);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: logo-in 420ms ease-out;
+}
+
+.home-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.12));
 }
 
 /* ── Top-right HUD row ── */
@@ -106,6 +252,8 @@ textarea {
   flex-direction: column;
   gap: 10px;
   z-index: 20;
+  animation: menu-pop 160ms ease-out;
+  transform-origin: top right;
 }
 
 .gear-panel label {
@@ -216,6 +364,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  animation: panel-in 220ms ease-out;
 }
 
 .route-card h4 {
@@ -303,6 +452,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  animation: bottom-panel-in 220ms ease-out;
 }
 
 .replay-bar input[type="range"] {
@@ -334,7 +484,7 @@ textarea {
   backdrop-filter: var(--panel-blur);
   border: 1px solid var(--panel-border);
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
   /* Transition for the "fly to corner" animation */
   transition:
     left 380ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -348,7 +498,7 @@ textarea {
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(720px, 74%);
+  width: min(720px, calc(100% - 32px));
 }
 
 .chat-dock.docked {
@@ -358,6 +508,56 @@ textarea {
   width: 340px;
   transform: none;
   border-radius: 14px;
+}
+
+.landing-intro {
+  padding: 16px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.landing-kicker {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.landing-intro h1 {
+  margin-top: 6px;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.prompt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prompt-chips button {
+  appearance: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(8, 12, 17, 0.62);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.2;
+  transition: border-color 150ms, color 150ms, background 150ms, transform 150ms;
+}
+
+.prompt-chips button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--field-bg);
+  transform: translateY(-1px);
 }
 
 /* Message list — only visible in docked state */
@@ -398,8 +598,8 @@ textarea {
   user-select: none;
 }
 
-.avatar.assistant { background: #1d2a39; }
-.avatar.user { background: var(--accent); border-color: var(--accent); }
+.avatar.assistant { background: rgba(18, 23, 29, 0.92); }
+.avatar.user { background: var(--accent-strong); border-color: var(--accent-strong); }
 
 /* ── Chat bubbles ── */
 .bubble {
@@ -412,13 +612,13 @@ textarea {
 }
 
 .bubble.user {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent-strong), #6c9cff);
   color: #fff;
   border-radius: 10px 3px 10px 10px;
 }
 
 .bubble.assistant {
-  background: #1d2a39;
+  background: rgba(18, 23, 29, 0.92);
   color: var(--text);
   border: 1px solid var(--panel-border);
   border-radius: 3px 10px 10px 10px;
@@ -504,19 +704,20 @@ textarea {
   cursor: pointer;
   font-size: 18px;
   flex-shrink: 0;
-  transition: border-color 150ms, color 150ms;
+  transition: border-color 150ms, color 150ms, transform 180ms;
 }
 
 .plus:hover,
 .plus.open {
   border-color: var(--accent);
   color: var(--text);
+  transform: rotate(45deg);
 }
 
 .composer-menu {
   position: absolute;
   left: 0;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 8px);
   z-index: 30;
   min-width: 178px;
   padding: 6px;
@@ -524,7 +725,14 @@ textarea {
   border-radius: 10px;
   background: var(--panel-bg);
   backdrop-filter: var(--panel-blur);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  animation: menu-pop 150ms ease-out;
+  transform-origin: left top;
+}
+
+.composer.mini .composer-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform-origin: left bottom;
 }
 
 .composer-menu-item {
@@ -581,7 +789,7 @@ textarea {
   appearance: none;
   border: none;
   border-radius: 8px;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent-strong), #85b1ff);
   color: #fff;
   width: 32px;
   height: 32px;
@@ -595,7 +803,7 @@ textarea {
 }
 
 .send:hover {
-  background: #4a7ff7;
+  background: linear-gradient(135deg, #628fff, #9bc0ff);
 }
 
 /* ── Range input global ── */
@@ -608,6 +816,7 @@ input[type="range"] {
   position: absolute; z-index: 20; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: min(360px, 86%); background: var(--panel-bg); backdrop-filter: var(--panel-blur);
   border: 1px solid var(--panel-border); border-radius: 16px; padding: 16px;
+  animation: centered-panel-in 180ms ease-out;
 }
 .choice-head { display: flex; justify-content: space-between; align-items: center; color: var(--text); font-size: 15px; font-weight: 600; margin-bottom: 12px; }
 .choice-x { appearance: none; border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 14px; }
@@ -628,6 +837,7 @@ input[type="range"] {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px;
   background: var(--panel-bg); backdrop-filter: var(--panel-blur); border: 1px solid var(--panel-border); border-radius: 12px;
   color: var(--text); font-size: 13px;
+  animation: bottom-panel-in 180ms ease-out;
 }
 .pin-confirm button { appearance: none; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--field-bg); color: var(--text); padding: 6px 12px; cursor: pointer; font-size: 13px; }
 .pin-confirm button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -638,6 +848,14 @@ input[type="range"] {
   align-items: center;
   gap: 5px;
   padding: 12px 13px;
+}
+
+.bubble.assistant.typing em {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1;
 }
 .bubble.typing span {
   width: 6px;
@@ -681,3 +899,95 @@ input[type="range"] {
 }
 .route-nav button:hover:not(:disabled) { border-color: var(--accent); }
 .route-nav button:disabled { opacity: 0.35; cursor: default; }
+
+@media (max-width: 720px) {
+  .top-right {
+    top: 16px;
+    right: 16px;
+  }
+
+  .gear-panel {
+    width: min(320px, calc(100vw - 32px));
+  }
+
+  .map-status {
+    left: 14px;
+    right: 14px;
+    bottom: 16px;
+    max-width: none;
+  }
+
+  .chat-dock.landing {
+    bottom: 78px;
+    width: calc(100% - 28px);
+  }
+
+  .landing-intro {
+    padding: 13px 13px 0;
+    gap: 10px;
+  }
+
+  .landing-intro h1 {
+    font-size: 18px;
+  }
+
+  .prompt-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .prompt-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .prompt-chips button {
+    flex: 0 0 auto;
+    max-width: 250px;
+    white-space: nowrap;
+  }
+
+  .chat-dock.docked {
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    height: min(72vh, 560px);
+  }
+
+  .composer {
+    padding: 10px;
+  }
+
+  .composer-input {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .composer-input::placeholder {
+    color: transparent;
+  }
+
+  .composer-menu {
+    min-width: 190px;
+  }
+
+  .route-card {
+    top: 68px;
+    right: 12px;
+    width: min(260px, calc(100% - 24px));
+  }
+
+  .replay-bar {
+    bottom: 12px;
+    width: calc(100% - 24px);
+  }
+
+  .pin-confirm {
+    bottom: 88px;
+    width: calc(100% - 24px);
+    justify-content: center;
+  }
+}

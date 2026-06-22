@@ -48,4 +48,22 @@ describe('tools', () => {
     } as any)
     expect(seen).toBe('foot-hiking')
   })
+
+  it('generate_loop_route 路跑优先选择低爬升候选', async () => {
+    const onRoute = vi.fn()
+    const seenSeeds: number[] = []
+    const out = await executeTool('generate_loop_route', { start: [0, 0], distance_km: 5, seed: 3, terrain: 'road' }, {
+      runs: new Map(), onRoute, requestTerrain: async () => null, requestStartPoint: async () => null,
+      _fetchLoop: async (_s: any, _k: any, seed: number) => {
+        seenSeeds.push(seed)
+        return seed === 10
+          ? { kind: 'loop', coordinates: [[0, 0]], distanceM: 5060, ascentM: 18 }
+          : { kind: 'loop', coordinates: [[0, 0]], distanceM: 5000, ascentM: 95 }
+      }
+    } as any)
+    expect(seenSeeds).toEqual([3, 10])
+    expect(onRoute).toHaveBeenCalledWith(expect.objectContaining({ ascentM: 18 }))
+    expect(JSON.parse(out).flat_priority).toBe(true)
+    expect(JSON.parse(out).ascent_per_km).toBeCloseTo(3.6)
+  })
 })
