@@ -1,13 +1,14 @@
 // src/app/App.tsx
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { MapView } from '@/map/MapView'
-import { setRouteLine, setStartPin, setTrack, fitToCoords } from '@/map/layers'
+import { setCurrentLocationMarker, setRouteLine, setStartPin, setTrack, fitToCoords } from '@/map/layers'
 import { ChatDock } from '@/chat/ChatDock'
 import { useChatAgent } from '@/chat/useChatAgent'
 import { SettingsGear } from '@/settings/SettingsGear'
 import type { ToolContext } from '@/agent/tools'
 import type { RouteResult, LngLat } from '@/routing/ors'
+import { getIpLocation } from '@/routing/ip-location'
 import { routeToGpx } from '@/export/gpx-export'
 import { loadConfig, type LlmConfig } from '@/llm/provider'
 import type { Run } from '@runs/types'
@@ -22,15 +23,52 @@ import { DitherMapBackdrop } from './DitherMapBackdrop'
 import { loadHomeBackground, type HomeBackground } from './preferences'
 import './styles.css'
 
+type LocationFix = {
+  coord: LngLat
+  source: 'browser' | 'ip'
+  accuracyM?: number
+  updatedAt: number
+}
+
+type PendingReview = {
+  runId: string
+  fileName: string
+  distanceKm: string
+  duration: string
+}
+
+const formatAccuracy = (fix: LocationFix | null) => {
+  if (!fix) return '点击重新定位'
+  if (fix.source === 'ip') return 'IP 粗略定位'
+  if (typeof fix.accuracyM !== 'number') return '浏览器定位'
+  if (fix.accuracyM >= 1000) return `约 ${(fix.accuracyM / 1000).toFixed(1)} km`
+  return `约 ${Math.max(1, Math.round(fix.accuracyM))} m`
+}
+
+const formatDuration = (ms: number) => {
+  if (!Number.isFinite(ms) || ms <= 0) return '--'
+  const totalSeconds = Math.round(ms / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
 export default function App() {
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const didAutoCenterRef = useRef(false)
   const [mapReady, setMapReady] = useState(false)
   const [docked, setDocked] = useState(false)
   const [startCoord, setStartCoord] = useState<LngLat | null>(null)
+  const [locationFix, setLocationFix] = useState<LocationFix | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState('')
   const [routes, setRoutes] = useState<RouteResult[]>([])   // 生成历史，"换一条"不覆盖
   const [routeIdx, setRouteIdx] = useState(0)               // 当前预览/可下载的那条
   const routesRef = useRef<RouteResult[]>([])               // 给 memo 化的 onRoute 用，避免陈旧闭包
   const [run, setRun] = useState<Run | null>(null)
+  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null)
   const [config, setConfig] = useState<LlmConfig | null>(loadConfig())
   const [homeBackground, setHomeBackground] = useState<HomeBackground>(loadHomeBackground())
   const runs = useRef<Map<string, Run>>(new Map())
@@ -42,17 +80,77 @@ export default function App() {
   const [pendingPin, setPendingPin] = useState<LngLat | null>(null)
   const [startMsg, setStartMsg] = useState('')
 
-  useEffect(() => {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      pos => setStartCoord([pos.coords.longitude, pos.coords.latitude]),
-      () => { /* denied — keep fallback */ }
-    )
+  const applyLocationFix = useCallback((fix: LocationFix, centerMap = false) => {
+    setStartCoord(fix.coord)
+    setLocationFix(fix)
+    setLocationError('')
+    const map = mapRef.current
+    if (!map) return
+    setCurrentLocationMarker(map, fix.coord)
+    if (centerMap) {
+      map.flyTo({ center: fix.coord, zoom: fix.source === 'ip' ? 12 : Math.max(map.getZoom(), 15) })
+    }
   }, [])
+
+  const locateCurrent = useCallback(async (centerMap = false) => {
+    setLocating(true)
+    setLocationError('')
+
+    const useIpFallback = async (message: string): Promise<LocationFix | null> => {
+      const c = await getIpLocation()
+      if (!c) {
+        setLocationError('定位失败')
+        return null
+      }
+      const fix: LocationFix = { coord: c, source: 'ip', updatedAt: Date.now() }
+      applyLocationFix(fix, centerMap)
+      console.warn(`[geo] ${message}，已用 IP 粗略定位:`, c)
+      return fix
+    }
+
+    if (!navigator.geolocation) {
+      const fix = await useIpFallback('navigator.geolocation 不可用')
+      setLocating(false)
+      return fix
+    }
+
+    const fix = await new Promise<LocationFix | null>(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const next: LocationFix = {
+            coord: [pos.coords.longitude, pos.coords.latitude],
+            source: 'browser',
+            accuracyM: pos.coords.accuracy,
+            updatedAt: Date.now()
+          }
+          applyLocationFix(next, centerMap)
+          resolve(next)
+        },
+        err => {
+          const reason = err.code === 1 ? '权限被拒'
+            : err.code === 2 ? '系统拿不到位置'
+            : err.code === 3 ? '定位超时' : '未知错误'
+          void useIpFallback(`系统定位失败（${reason}）`).then(resolve)
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      )
+    })
+    setLocating(false)
+    return fix
+  }, [applyLocationFix])
+
   useEffect(() => {
-    if (startCoord && mapReady && mapRef.current) mapRef.current.flyTo({ center: startCoord, zoom: 14 })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapReady])
+    void locateCurrent(false)
+  }, [locateCurrent])
+
+  useEffect(() => {
+    if (!locationFix || !mapReady || !mapRef.current) return
+    setCurrentLocationMarker(mapRef.current, locationFix.coord)
+    if (!didAutoCenterRef.current) {
+      didAutoCenterRef.current = true
+      mapRef.current.flyTo({ center: locationFix.coord, zoom: locationFix.source === 'ip' ? 12 : 14 })
+    }
+  }, [locationFix, mapReady])
 
   const requestTerrain = () => new Promise<'trail' | 'road' | null>(resolve => setTerrainResolve(() => resolve))
   const requestStartPoint = () => new Promise<LngLat | null>(resolve => { setStartMsg(''); setStartResolve(() => resolve) })
@@ -89,7 +187,11 @@ export default function App() {
     ? `已知当前定位坐标 ${JSON.stringify(startCoord)}（仅当用户明确要用当前位置/附近时直接用；否则起点未定，调 ask_start_point 让用户选）`
     : '当前定位不可用；起点未定，需要时调 ask_start_point 让用户选'
 
-  const onSend = (text: string) => { if (!docked) setDocked(true); void send(text, currentStartContext()) }
+  const onSend = (text: string) => {
+    if (!docked) setDocked(true)
+    setPendingReview(null)
+    void send(text, currentStartContext())
+  }
 
   const onUpload = async (file: File) => {
     if (!docked) setDocked(true)
@@ -101,7 +203,19 @@ export default function App() {
     setRun(parsed)
     const map = mapRef.current
     if (map) { const t = parsed.points.map(p => [p.lon, p.lat] as LngLat); setTrack(map, t); fitToCoords(map, t) }
-    void send(`[上传训练] ${file.name}，请复盘`, `run_id=${parsed.id}`)
+    setPendingReview({
+      runId: parsed.id,
+      fileName: file.name,
+      distanceKm: (parsed.totalDistance / 1000).toFixed(2),
+      duration: formatDuration(parsed.totalTime)
+    })
+  }
+
+  const reviewUploadedRun = () => {
+    if (!pendingReview) return
+    const review = pendingReview
+    setPendingReview(null)
+    void send(`[上传训练] ${review.fileName}，请复盘`, `run_id=${review.runId}`)
   }
 
   const onMapClick = (c: LngLat) => {
@@ -113,13 +227,16 @@ export default function App() {
   const cancelTerrain = () => { terrainResolve?.(null); setTerrainResolve(null) }
 
   const pickCurrent = () => {
-    if (startCoord) { startResolve?.(startCoord); setStartResolve(null); return }
-    if (!navigator.geolocation) { setStartMsg('定位不可用，请改用手动选点'); return }
+    if (locationFix) { startResolve?.(locationFix.coord); setStartResolve(null); return }
     setStartMsg('正在定位…')
-    navigator.geolocation.getCurrentPosition(
-      pos => { const c: LngLat = [pos.coords.longitude, pos.coords.latitude]; setStartCoord(c); startResolve?.(c); setStartResolve(null) },
-      () => setStartMsg('定位不可用，请改用手动选点')
-    )
+    void locateCurrent(true).then(fix => {
+      if (fix) { startResolve?.(fix.coord); setStartResolve(null) }
+      else { setStartMsg('定位失败了，请改用手动选点') }
+    })
+  }
+  const focusCurrentLocation = () => {
+    if (locationFix) applyLocationFix(locationFix, true)
+    void locateCurrent(true)
   }
   const pickManual = () => { setPicking(true) }      // 隐藏起点卡、进入选点；startResolve 保留
   const cancelStart = () => { startResolve?.(null); setStartResolve(null); setPicking(false); setPendingPin(null) }
@@ -147,6 +264,20 @@ export default function App() {
       <div className="top-right">
         <SettingsGear onSaved={setConfig} homeBackground={homeBackground} onHomeBackgroundChange={setHomeBackground} />
       </div>
+
+      {mapReady && (
+        <button
+          className={`location-badge ${docked ? 'docked' : ''} ${locating ? 'loading' : ''} ${locationFix?.source === 'ip' ? 'rough' : ''}`}
+          onClick={focusCurrentLocation}
+          title="重新定位并回到当前位置"
+        >
+          <span className="location-glyph" aria-hidden="true" />
+          <span className="location-copy">
+            <strong>{locating ? '定位中' : locationFix ? '当前位置' : '定位未知'}</strong>
+            <small>{locationError || formatAccuracy(locationFix)}</small>
+          </span>
+        </button>
+      )}
 
       {terrainResolve && <TerrainCard onPick={pickTerrain} onCancel={cancelTerrain} />}
       {startResolve && !picking && <StartPointCard onCurrent={pickCurrent} onManual={pickManual} onCancel={cancelStart} message={startMsg} />}
@@ -186,6 +317,9 @@ export default function App() {
         docked={docked}
         thinking={busy && !cardActive}
         thinkingLabel="正在理解需求并准备跑步工具…"
+        pendingReview={pendingReview}
+        onReviewUploadedRun={reviewUploadedRun}
+        onDismissPendingReview={() => setPendingReview(null)}
         onSend={onSend}
         onUpload={onUpload}
       />
