@@ -1,6 +1,7 @@
 import FitParser from 'fit-file-parser'
-import type { Run, RunLap, SummaryEntry, SummaryValue, TrackPoint } from './types'
+import type { HeartRateReference, Run, RunLap, SummaryEntry, SummaryValue, TrackPoint } from './types'
 import { haversineMeters } from './geo'
+import { detectActivityType } from './activity'
 
 const semicirclesToDegrees = (value: number) => value * (180 / Math.pow(2, 31))
 
@@ -81,6 +82,29 @@ const extractLapSummaries = (laps: any[]): RunLap[] =>
     entries: extractSummaryEntries(lap, ['records', 'lengths', 'start_position_lat', 'start_position_long', 'end_position_lat', 'end_position_long'])
   }))
 
+const firstRecord = (value: unknown): Record<string, unknown> => {
+  if (Array.isArray(value)) return (value[0] as Record<string, unknown> | undefined) ?? {}
+  return value && typeof value === 'object' ? value as Record<string, unknown> : {}
+}
+
+const readHeartRateReference = (data: any): HeartRateReference | undefined => {
+  const zonesTarget = firstRecord(data?.zones_target ?? data?.zones_targets ?? data?.zonesTarget ?? data?.activity?.zones_target)
+  const userProfile = firstRecord(data?.user_profile ?? data?.user_profiles ?? data?.userProfile)
+  const threshold = Number(zonesTarget.threshold_heart_rate)
+  if (Number.isFinite(threshold) && threshold >= 30 && threshold <= 230) {
+    return { base: 'LTHR', value: threshold, source: 'FIT zones_target.threshold_heart_rate' }
+  }
+  const maxHeartRate = Number(
+    zonesTarget.max_heart_rate
+      ?? userProfile.default_max_biking_heart_rate
+      ?? userProfile.default_max_heart_rate
+  )
+  if (Number.isFinite(maxHeartRate) && maxHeartRate >= 30 && maxHeartRate <= 230) {
+    return { base: 'HRmax', value: maxHeartRate, source: 'FIT personal heart-rate settings' }
+  }
+  return undefined
+}
+
 export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Promise<Run> => {
   const fitParser = new FitParser({
     force: true,
@@ -109,10 +133,19 @@ export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Pro
     console.groupEnd()
   }
 
-  const name = data?.file_id?.type ?? 'FIT Run'
   const records = Array.isArray(data?.records) ? data.records : []
   const sessions = Array.isArray(data?.sessions) ? data.sessions : data?.session ? [data.session] : []
   const laps = Array.isArray(data?.laps) ? data.laps : data?.lap ? [data.lap] : []
+  const session = sessions[0] ?? {}
+  const name = session.name ?? session.sport ?? data?.file_id?.type ?? 'FIT Activity'
+  const activityType = detectActivityType(
+    session.sport,
+    session.sub_sport,
+    data?.activity?.sport,
+    data?.activity?.type,
+    name,
+    sourcePath
+  )
   const points: TrackPoint[] = []
   const metricKeys = new Set<string>()
 
@@ -191,11 +224,10 @@ export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Pro
     ...extractSummaryEntries(data?.file_id, []),
     ...extractSummaryEntries(sessions[0], ['laps', 'records', 'lengths'])
   ]
-  const session = sessions[0] ?? {}
-
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     name,
+    activityType,
     sourcePath,
     sourceType: 'fit',
     points: cleaned,
@@ -206,6 +238,7 @@ export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Pro
     ),
     summaryEntries,
     lapSummaries: extractLapSummaries(laps),
+    heartRateReference: readHeartRateReference(data),
     aggregateMetrics: {
       avgHeartRate: Number.isFinite(session.avg_heart_rate) ? Number(session.avg_heart_rate) : undefined,
       maxHeartRate: Number.isFinite(session.max_heart_rate) ? Number(session.max_heart_rate) : undefined,

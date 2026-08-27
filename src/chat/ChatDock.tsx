@@ -2,10 +2,12 @@ import { useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Composer } from './Composer'
+import { APP_NAME } from '@/app/brand'
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string }
 export type PendingReviewNotice = {
   fileName: string
+  activityLabel: string
   distanceKm: string
   duration: string
 }
@@ -13,7 +15,7 @@ export type PendingReviewNotice = {
 const landingPrompts = [
   '从当前位置生成一条 5 公里路跑环线',
   '帮我规划 8 公里轻松跑路线',
-  '导入训练后帮我复盘配速和心率'
+  '导入骑行训练，分析心率五区和能力刺激'
 ]
 
 export const ChatDock = ({
@@ -23,6 +25,7 @@ export const ChatDock = ({
   thinkingLabel = '正在思考…',
   pendingReview,
   onReviewUploadedRun,
+  onOpenDashboard,
   onDismissPendingReview,
   onSend,
   onUpload
@@ -33,6 +36,7 @@ export const ChatDock = ({
   thinkingLabel?: string
   pendingReview?: PendingReviewNotice | null
   onReviewUploadedRun?: () => void
+  onOpenDashboard?: () => void
   onDismissPendingReview?: () => void
   onSend: (t: string) => void
   onUpload: (f: File) => void
@@ -47,10 +51,10 @@ export const ChatDock = ({
       {!docked && (
         <div className="landing-intro">
           <div>
-            <p className="landing-kicker">RunCoach</p>
-            <h1>今天想怎么跑？</h1>
+            <p className="landing-kicker">{APP_NAME}</p>
+            <h1>今天想怎么练？</h1>
           </div>
-          <div className="prompt-chips" aria-label="快捷跑步任务">
+          <div className="prompt-chips" aria-label="快捷训练任务">
             {landingPrompts.map(prompt => (
               <button key={prompt} onClick={() => onSend(prompt)}>{prompt}</button>
             ))}
@@ -79,11 +83,15 @@ export const ChatDock = ({
               </div>
               <div className="run-ready-name" title={pendingReview.fileName}>{pendingReview.fileName}</div>
               <div className="run-ready-stats">
+                <span>{pendingReview.activityLabel}</span>
                 <span>{pendingReview.distanceKm} km</span>
                 <span>{pendingReview.duration}</span>
               </div>
-              <p>轨迹已在地图上，可直接用下方控制条播放回放。</p>
-              <button type="button" className="run-ready-action" onClick={onReviewUploadedRun}>开始复盘</button>
+              <p>轨迹已在地图上，可播放回放、打开数据看板或开始 AI 复盘。</p>
+              <div className="run-ready-actions">
+                <button type="button" className="run-ready-action secondary" onClick={onOpenDashboard}>打开数据看板</button>
+                <button type="button" className="run-ready-action" onClick={onReviewUploadedRun}>开始 AI 复盘</button>
+              </div>
             </div>
           )}
           {thinking && (

@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser'
 import { Run, TrackPoint } from './types'
 import { haversineMeters } from './geo'
+import { detectActivityType } from './activity'
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -25,13 +26,14 @@ const safeTime = (value: unknown) => {
   return Number.isFinite(time) ? time : undefined
 }
 
-const extractHeartRate = (trkpt: any) => {
-  const extensions = trkpt.extensions || trkpt['gpxtpx:TrackPointExtension']
-  if (!extensions) return undefined
-  if (extensions['gpxtpx:TrackPointExtension']) {
-    return safeNumber(extensions['gpxtpx:TrackPointExtension']?.['gpxtpx:hr'])
+const extensionValue = (trkpt: any, keys: string[]) => {
+  const extensions = trkpt.extensions || trkpt['gpxtpx:TrackPointExtension'] || {}
+  const nested = extensions?.['gpxtpx:TrackPointExtension'] || extensions
+  for (const key of keys) {
+    const value = nested?.[key] ?? extensions?.[key]
+    if (value !== undefined) return value
   }
-  return safeNumber(extensions?.['gpxtpx:hr'] ?? extensions?.hr)
+  return undefined
 }
 
 export const parseGpxFile = (xml: string, sourcePath: string): Run => {
@@ -39,7 +41,10 @@ export const parseGpxFile = (xml: string, sourcePath: string): Run => {
   const gpx = parsed.gpx ?? parsed
   const trks = toArray(gpx.trk)
   const trk = trks[0]
-  const name = trk?.name?.value ?? trk?.name ?? 'Unnamed Run'
+  const name = trk?.name?.value ?? trk?.name ?? 'Unnamed Activity'
+  const trackType = trk?.type?.value ?? trk?.type
+  const metadataName = gpx.metadata?.name?.value ?? gpx.metadata?.name
+  const activityType = detectActivityType(trackType, name, metadataName, sourcePath)
 
   const segments = toArray(trk?.trkseg)
   const points: TrackPoint[] = []
@@ -52,16 +57,25 @@ export const parseGpxFile = (xml: string, sourcePath: string): Run => {
       const time = safeTime(trkpt.time?.value ?? trkpt.time)
       const elevation = safeNumber(trkpt.ele?.value ?? trkpt.ele)
       if (lat === undefined || lon === undefined || time === undefined) continue
-      const hr = extractHeartRate(trkpt)
+      const hr = safeNumber(extensionValue(trkpt, ['gpxtpx:hr', 'hr']))
+      const power = safeNumber(trkpt.power?.value ?? trkpt.power ?? extensionValue(trkpt, ['gpxtpx:power', 'power']))
+      const cadence = safeNumber(extensionValue(trkpt, ['gpxtpx:cad', 'cad', 'cadence']))
+      const temperature = safeNumber(extensionValue(trkpt, ['gpxtpx:atemp', 'atemp', 'temperature']))
       points.push({
         lat,
         lon,
         time,
         hr,
         elevation,
+        power,
+        cadence,
+        temperature,
         metrics: {
           ...(hr !== undefined ? { heart_rate: hr } : {}),
-          ...(elevation !== undefined ? { elevation } : {})
+          ...(elevation !== undefined ? { elevation } : {}),
+          ...(power !== undefined ? { power } : {}),
+          ...(cadence !== undefined ? { cadence } : {}),
+          ...(temperature !== undefined ? { temperature } : {})
         },
         distFromStart: 0
       })
@@ -104,12 +118,13 @@ export const parseGpxFile = (xml: string, sourcePath: string): Run => {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     name,
+    activityType,
     sourcePath,
     sourceType: 'gpx',
     points: cleaned,
     totalDistance,
     totalTime,
-    metricKeys: ['speed', 'heart_rate', 'elevation'].filter(key =>
+    metricKeys: ['speed', 'heart_rate', 'elevation', 'power', 'cadence', 'temperature'].filter(key =>
       cleaned.some(point => Number.isFinite(point.metrics[key]))
     ),
     summaryEntries: [],

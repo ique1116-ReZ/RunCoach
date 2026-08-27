@@ -15,12 +15,15 @@ import type { Run } from '@runs/types'
 import { parseGpxFile } from '@runs/gpx'
 import { parseFitFile } from '@runs/fit'
 import { parseJsonFile } from '@runs/json'
+import { activityTypeLabel } from '@runs/activity'
 import { TerrainCard } from './TerrainCard'
 import { StartPointCard } from './StartPointCard'
 import { PinConfirm } from './PinConfirm'
 import { ReplayBar } from './ReplayBar'
+import { ActivityDashboard } from './ActivityDashboard'
 import { DitherMapBackdrop } from './DitherMapBackdrop'
 import { loadHomeBackground, type HomeBackground } from './preferences'
+import { APP_NAME, APP_SLUG } from './brand'
 import './styles.css'
 
 type LocationFix = {
@@ -33,6 +36,8 @@ type LocationFix = {
 type PendingReview = {
   runId: string
   fileName: string
+  activityType: Run['activityType']
+  activityLabel: string
   distanceKm: string
   duration: string
 }
@@ -68,6 +73,7 @@ export default function App() {
   const [routeIdx, setRouteIdx] = useState(0)               // 当前预览/可下载的那条
   const routesRef = useRef<RouteResult[]>([])               // 给 memo 化的 onRoute 用，避免陈旧闭包
   const [run, setRun] = useState<Run | null>(null)
+  const [dashboardOpen, setDashboardOpen] = useState(false)
   const [pendingReview, setPendingReview] = useState<PendingReview | null>(null)
   const [config, setConfig] = useState<LlmConfig | null>(loadConfig())
   const [homeBackground, setHomeBackground] = useState<HomeBackground>(loadHomeBackground())
@@ -162,6 +168,7 @@ export default function App() {
 
   const ctx: ToolContext = useMemo(() => ({
     runs: runs.current,
+    onRunUpdated: (updatedRun: Run) => setRun(updatedRun),
     onRoute: (r: RouteResult) => {
       routesRef.current = [...routesRef.current, r]
       setRoutes(routesRef.current)
@@ -201,11 +208,14 @@ export default function App() {
       : file.name.endsWith('.json') ? await parseJsonFile(text, file.name) : parseGpxFile(text, file.name)
     runs.current.set(parsed.id, parsed)
     setRun(parsed)
+    setDashboardOpen(false)
     const map = mapRef.current
     if (map) { const t = parsed.points.map(p => [p.lon, p.lat] as LngLat); setTrack(map, t); fitToCoords(map, t) }
     setPendingReview({
       runId: parsed.id,
       fileName: file.name,
+      activityType: parsed.activityType,
+      activityLabel: activityTypeLabel(parsed.activityType),
       distanceKm: (parsed.totalDistance / 1000).toFixed(2),
       duration: formatDuration(parsed.totalTime)
     })
@@ -215,7 +225,13 @@ export default function App() {
     if (!pendingReview) return
     const review = pendingReview
     setPendingReview(null)
-    void send(`[上传训练] ${review.fileName}，请复盘`, `run_id=${review.runId}`)
+    const request = review.activityType === 'cycling'
+      ? `[上传骑行训练] ${review.fileName}，请复盘。心率强度区间只给 Z1-Z5 占比图表；再判断本次训练对续航、爬坡、冲刺的刺激，没有可靠功率时不显示冲刺。能力后直接给下一次训练建议。如果没有用户确认的 HRmax 或 LTHR，先向我追问其中一个，不要猜测。`
+      : `[上传${review.activityLabel}训练] ${review.fileName}，请复盘`
+    void send(
+      request,
+      `run_id=${review.runId}; activity_type=${review.activityType}`
+    )
   }
 
   const onMapClick = (c: LngLat) => {
@@ -246,9 +262,9 @@ export default function App() {
   const downloadGpx = () => {
     const r = routes[routeIdx]
     if (!r) return
-    const blob = new Blob([routeToGpx(r, 'RunCoach 路线')], { type: 'application/gpx+xml' })
+    const blob = new Blob([routeToGpx(r, `${APP_NAME} 路线`)], { type: 'application/gpx+xml' })
     const a = document.createElement('a'); const url = URL.createObjectURL(blob)
-    a.href = url; a.download = 'runcoach-route.gpx'; a.click(); URL.revokeObjectURL(url)
+    a.href = url; a.download = `${APP_SLUG}-route.gpx`; a.click(); URL.revokeObjectURL(url)
   }
 
   return (
@@ -256,8 +272,9 @@ export default function App() {
       <MapView onReady={m => { mapRef.current = m; setMapReady(true) }} onMapClick={onMapClick} picking={picking} />
       <DitherMapBackdrop active={!docked || !mapReady} mode={homeBackground} />
       {!docked && (
-        <div className="home-logo" aria-hidden="true">
-          <img src="/run-ai-coach-logo.png" alt="" />
+        <div className="home-wordmark" aria-hidden="true">
+          <span>VIRTUAL</span>
+          <span className="home-wordmark-accent">COACH</span>
         </div>
       )}
 
@@ -310,15 +327,18 @@ export default function App() {
         </div>
       )}
 
-      {run && <ReplayBar run={run} map={mapRef.current} />}
+      {run && <ReplayBar run={run} map={mapRef.current} onOpenDashboard={() => setDashboardOpen(true)} />}
+
+      {run && dashboardOpen && <ActivityDashboard run={run} onClose={() => setDashboardOpen(false)} />}
 
       <ChatDock
         turns={turns}
         docked={docked}
         thinking={busy && !cardActive}
-        thinkingLabel="正在理解需求并准备跑步工具…"
+        thinkingLabel="正在理解训练需求…"
         pendingReview={pendingReview}
         onReviewUploadedRun={reviewUploadedRun}
+        onOpenDashboard={() => setDashboardOpen(true)}
         onDismissPendingReview={() => setPendingReview(null)}
         onSend={onSend}
         onUpload={onUpload}

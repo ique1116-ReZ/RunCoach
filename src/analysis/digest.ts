@@ -1,5 +1,6 @@
 import type { Run } from '@runs/types'
 import { sampleAtDistance } from '@runs/align'
+import { buildCyclingAnalysis } from './cycling'
 
 export type ComparisonRelation = 'auto' | 'same_athlete' | 'different_athletes'
 
@@ -22,6 +23,11 @@ const formatPace = (speed: number) => {
   const seconds = Math.round(totalSeconds % 60)
   return `${minutes}:${seconds.toString().padStart(2, '0')}/km`
 }
+
+const formatSpeedKmh = (speed: number | undefined) =>
+  speed !== undefined && Number.isFinite(speed) && speed >= 0
+    ? Number(formatNumber(speed * 3.6, 1))
+    : undefined
 
 const average = (values: number[]) => {
   if (values.length === 0) return undefined
@@ -80,11 +86,13 @@ const metricLow = (run: Run, key: string) => {
 const asPointDigest = (run: Run, percent: number) => {
   const distance = run.totalDistance * percent
   const point = sampleAtDistance(run, distance)
+  const isCycling = run.activityType === 'cycling'
   return {
     percent: roundMaybe(percent * 100, 0),
     distanceKm: roundMaybe(distance / 1000, 2),
-    pace: point?.speed ? formatPace(point.speed) : '--',
+    pace: !isCycling && point?.speed ? formatPace(point.speed) : undefined,
     speedMs: roundMaybe(point?.speed, 2),
+    speedKmh: formatSpeedKmh(point?.speed),
     hr: roundMaybe(point?.hr, 0),
     elevation: roundMaybe(point?.elevation, 0),
     power: roundMaybe(point?.power, 0),
@@ -96,19 +104,27 @@ const asPointDigest = (run: Run, percent: number) => {
 
 export const buildRunDigest = (run: Run) => {
   const checkpoints = [0, 0.25, 0.5, 0.75, 1].map(percent => asPointDigest(run, percent))
+  const averageSpeed = run.totalTime > 0 && run.totalDistance > 0
+    ? run.totalDistance / (run.totalTime / 1000)
+    : metricAverage(run, 'speed')
+  const isCycling = run.activityType === 'cycling'
   return {
     fileName: run.sourcePath,
     name: run.name,
+    activityType: run.activityType,
     sourceType: run.sourceType,
     totalDistanceKm: roundMaybe(run.totalDistance / 1000, 2),
     totalDuration: formatDuration(run.totalTime),
-    averagePace: run.totalTime > 0 && run.totalDistance > 0 ? formatPace(run.totalDistance / (run.totalTime / 1000)) : '--',
-    averageHeartRate: roundMaybe(metricAverage(run, 'heart_rate'), 0),
-    maxHeartRate: roundMaybe(metricPeak(run, 'heart_rate'), 0),
-    averagePower: roundMaybe(metricAverage(run, 'power'), 0),
-    maxPower: roundMaybe(metricPeak(run, 'power'), 0),
-    averageCadence: roundMaybe(metricAverage(run, 'cadence'), 0),
-    maxCadence: roundMaybe(metricPeak(run, 'cadence'), 0),
+    averagePace: !isCycling && averageSpeed ? formatPace(averageSpeed) : undefined,
+    averageSpeedKmh: formatSpeedKmh(averageSpeed),
+    maxSpeedKmh: formatSpeedKmh(metricPeak(run, 'speed')),
+    averageHeartRate: roundMaybe(metricAverage(run, 'heart_rate') ?? run.aggregateMetrics.avgHeartRate, 0),
+    maxHeartRate: roundMaybe(metricPeak(run, 'heart_rate') ?? run.aggregateMetrics.maxHeartRate, 0),
+    averagePower: roundMaybe(metricAverage(run, 'power') ?? run.aggregateMetrics.avgPower, 0),
+    maxPower: roundMaybe(metricPeak(run, 'power') ?? run.aggregateMetrics.maxPower, 0),
+    averageCadence: roundMaybe(metricAverage(run, 'cadence') ?? run.aggregateMetrics.avgCadence, 0),
+    maxCadence: roundMaybe(metricPeak(run, 'cadence') ?? run.aggregateMetrics.maxCadence, 0),
+    cadenceUnit: isCycling ? 'rpm' : 'spm',
     avgElevation: roundMaybe(metricAverage(run, 'elevation'), 0),
     minElevation: roundMaybe(metricLow(run, 'elevation'), 0),
     maxElevation: roundMaybe(metricPeak(run, 'elevation'), 0),
@@ -116,6 +132,12 @@ export const buildRunDigest = (run: Run) => {
     metricKeys: run.metricKeys,
     lapCount: run.lapSummaries.length,
     summaryPreview: run.summaryEntries.slice(0, 14),
+    analysisFocus: isCycling
+      ? '骑行训练：心率强度区间只展示 Z1-Z5 占比图表；再判断本次训练对续航、爬坡和冲刺的刺激，冲刺仅在 capabilities 中存在时展示；只引用摘要中实际存在的指标，并检查是否有极光路段；能力后直接给下一次训练建议，不要使用跑步配速表达。'
+      : run.activityType === 'running'
+        ? '跑步训练：优先分析配速、心率、步频、爬升和前后程稳定性。'
+        : '运动类型未知：结合文件名、原始摘要和用户描述判断；不确定时明确说明，不要武断归类。',
+    cyclingAnalysis: isCycling ? buildCyclingAnalysis(run) : undefined,
     checkpoints
   }
 }
@@ -134,7 +156,10 @@ export const buildComparisonDigest = (runA: Run, runB: Run, relation: Comparison
       a: pointA,
       b: pointB,
       delta: {
-        pace: pointA.pace === '--' || pointB.pace === '--' ? '--' : `${pointA.pace} vs ${pointB.pace}`,
+        pace: pointA.pace && pointB.pace ? `${pointA.pace} vs ${pointB.pace}` : undefined,
+        speedKmh: pointA.speedKmh !== undefined && pointB.speedKmh !== undefined
+          ? roundMaybe(pointB.speedKmh - pointA.speedKmh, 1)
+          : undefined,
         hr: pointA.hr !== undefined && pointB.hr !== undefined ? roundMaybe(pointB.hr - pointA.hr, 0) : undefined,
         elevation: pointA.elevation !== undefined && pointB.elevation !== undefined ? roundMaybe(pointB.elevation - pointA.elevation, 0) : undefined,
         power: pointA.power !== undefined && pointB.power !== undefined ? roundMaybe(pointB.power - pointA.power, 0) : undefined,
@@ -145,7 +170,7 @@ export const buildComparisonDigest = (runA: Run, runB: Run, relation: Comparison
 
   return {
     relation,
-    alignmentNote: 'B 已按 A 的路线做拟合，差异应主要来自配速、心率和力量策略，而不是纯 GPS 偏差。',
+    alignmentNote: '检查点按各自总距离百分比对齐；若路线不同，应结合坡度、海拔和风阻解读速度、心率与功率差异。',
     routeComparison: {
       totalDistanceDeltaKm,
       totalDurationDelta,

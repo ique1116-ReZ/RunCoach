@@ -1,5 +1,7 @@
 export type HeartRateBase = 'LTHR' | 'HRmax'
 
+export type ActivityType = 'running' | 'cycling' | 'unknown'
+
 export type MetricValue = number | undefined
 
 export type SummaryValue = string | number | boolean
@@ -23,6 +25,12 @@ export type AggregateMetrics = Partial<{
   maxCadence: number
   totalAscent: number
 }>
+
+export type HeartRateReference = {
+  base: HeartRateBase
+  value: number
+  source: string
+}
 
 export type Zone = {
   id: string
@@ -59,6 +67,7 @@ export type TrackPoint = {
 export type Run = {
   id: string
   name: string
+  activityType: ActivityType
   sourcePath: string
   sourceType: 'fit' | 'gpx' | 'json'
   points: TrackPoint[]
@@ -68,4 +77,5 @@ export type Run = {
   summaryEntries: SummaryEntry[]
   lapSummaries: RunLap[]
   aggregateMetrics: AggregateMetrics
+  heartRateReference?: HeartRateReference
 }

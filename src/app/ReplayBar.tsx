@@ -63,12 +63,13 @@ const timeAtDistance = (run: Run, distance: number) => {
   return left.time + (right.time - left.time) * ratio
 }
 
-export const ReplayBar = ({ run, map }: { run: Run; map: maplibregl.Map | null }) => {
+export const ReplayBar = ({ run, map, onOpenDashboard }: { run: Run; map: maplibregl.Map | null; onOpenDashboard: () => void }) => {
   const [pct, setPct] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState(8)
   const dist = run.totalDistance * pct
   const s = sampleAtDistance(run, dist)
+  const isCycling = run.activityType === 'cycling'
   const elevationChart = useMemo(() => {
     if (run.totalDistance <= 0 || run.points.length < 2) return null
 
@@ -158,6 +159,9 @@ export const ReplayBar = ({ run, map }: { run: Run; map: maplibregl.Map | null }
   const pace = s?.speed
     ? `${Math.floor((1000 / s.speed) / 60)}:${String(Math.round((1000 / s.speed) % 60)).padStart(2, '0')}/km`
     : '--'
+  const speedKmh = s?.speed !== undefined && Number.isFinite(s.speed)
+    ? `${(s.speed * 3.6).toFixed(1)} km/h`
+    : '--'
 
   const togglePlaying = () => {
     if (pct >= 1) setPct(0)
@@ -235,8 +239,11 @@ export const ReplayBar = ({ run, map }: { run: Run; map: maplibregl.Map | null }
       )}
       <div className="replay-live">
         <span>{(dist / 1000).toFixed(2)} km</span>
-        <span>配速 {pace}</span>
+        <span>{isCycling ? `速度 ${speedKmh}` : `配速 ${pace}`}</span>
+        {isCycling && s?.power !== undefined && <span>功率 {Math.round(s.power)} W</span>}
+        {isCycling && s?.cadence !== undefined && <span>踏频 {Math.round(s.cadence)} rpm</span>}
         <span>心率 {s?.hr !== undefined ? Math.round(s.hr) : '--'}</span>
+        <button type="button" className="replay-dashboard" onClick={onOpenDashboard}>数据看板</button>
       </div>
     </div>
   )

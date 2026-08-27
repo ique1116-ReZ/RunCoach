@@ -15,11 +15,12 @@ export const llmProviderMeta: Record<LlmProvider, { label: string; baseUrl: stri
   deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', defaultModel: 'deepseek-v4-flash' }
 }
 
-const STORAGE_KEY = 'runcoach.llm'
+const STORAGE_KEY = 'virtualcoach.llm'
+const LEGACY_STORAGE_KEY = 'runcoach.llm'
 
 export const saveConfig = (c: LlmConfig) => localStorage.setItem(STORAGE_KEY, JSON.stringify(c))
 export const loadConfig = (): LlmConfig | null => {
-  const raw = localStorage.getItem(STORAGE_KEY)
+  const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
   if (!raw) return null
   try { return JSON.parse(raw) as LlmConfig } catch { return null }
 }

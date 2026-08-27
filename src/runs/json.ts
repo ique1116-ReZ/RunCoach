@@ -1,5 +1,6 @@
 import type { Run, RunLap, SummaryEntry, SummaryValue, TrackPoint } from './types'
 import { haversineMeters } from './geo'
+import { detectActivityType } from './activity'
 
 const metricAliases: Record<string, string> = {
   hr: 'heart_rate',
@@ -376,6 +377,15 @@ export const parseJsonFile = async (text: string, sourcePath: string): Promise<R
       : null
   const headerActivity = typeof header?.Activity === 'string' && header.Activity !== 'null' ? header.Activity : undefined
   const name = String(root.name ?? root.title ?? root.activityName ?? headerActivity ?? fallbackName)
+  const activityType = detectActivityType(
+    root.sport,
+    root.sportType,
+    root.activityType,
+    root.type,
+    headerActivity,
+    name,
+    sourcePath
+  )
 
   const avgFromWindow = (key: string) => {
     const value = activitySummary?.[key]
@@ -389,6 +399,7 @@ export const parseJsonFile = async (text: string, sourcePath: string): Promise<R
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     name,
+    activityType,
     sourcePath,
     sourceType: 'json',
     points,

@@ -6,13 +6,15 @@ import { ensureLayers } from './layers'
 import type { LngLat } from '@/routing/ors'
 
 const maptilerKey = import.meta.env.VITE_MAPTILER_KEY
-const styleUrl = maptilerKey ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}` : ''
+const styleUrl = maptilerKey
+  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`
+  : 'https://tiles.openfreemap.org/styles/liberty'
 
 export const MapView = ({ onReady, onMapClick, picking }: { onReady: (m: maplibregl.Map) => void; onMapClick: (c: LngLat) => void; picking?: boolean }) => {
   const ref = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [loaded, setLoaded] = useState(false)
-  const [error, setError] = useState<string | null>(maptilerKey ? null : '缺少 VITE_MAPTILER_KEY')
+  const [error, setError] = useState<string | null>(null)
   // 始终指向最新的 onMapClick，避免地图 click 监听只绑定挂载时的旧闭包（导致 picking 永远是 false）
   const clickRef = useRef(onMapClick)
   clickRef.current = onMapClick

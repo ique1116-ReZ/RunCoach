@@ -55,7 +55,7 @@ export const Composer = ({ docked, onSend, onUpload }: {
         <input ref={fileRef} type="file" accept=".gpx,.fit,.json" hidden
           onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = '' }} />
       </div>
-      <input className="composer-input" value={text} placeholder="问问跑步教练，或点 + 导入训练…"
+      <input className="composer-input" value={text} placeholder="问问跑步/骑行教练，或点 + 导入训练…"
         onChange={e => setText(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) submit() }} />
       <button className="send" onClick={submit}>↑</button>
