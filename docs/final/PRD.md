@@ -113,7 +113,7 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 | 数据看板 | 导入训练后查看概览、趋势和关键指标 | 可按指标切换趋势图；本地导出 PNG 看板和 CSV 点位数据 | `app/ActivityDashboard.tsx`、`analysis/dashboard.ts` |
 | 数据摘要 | 距离、用时、配速、心率、功率、步频、高程、分段检查点；骑行增加 Z1-Z5 心率占比条、续航/爬坡/冲刺训练刺激和可选极光路段 | 心率区间只能使用明确的骑行 LTHR 或 HRmax（含年龄回填值）；不以单次最高心率兜底；冲刺只在功率覆盖达到 80% 时显示；极光路段至少连续 8 分钟且速度、心率稳定 | `analysis/digest.ts`、`analysis/cycling.ts` |
 | 心率设置门禁 | 骑行有逐点心率但没有可用参考值时，摘要返回 `referenceRequired=true` | 应用直接打开设置并暂停复盘；不让 LLM 猜测或在对话中追问；保存后再次点击即可复盘 | `agent/coach.ts`、`agent/tools.ts`、`app/App.tsx` |
-| AI 复盘 | 用户确认后发送“请复盘”，AI 据摘要和当前解读方式解读 | 进阶训练按“心率五区占比表 → 可选极光路段 → 能力提升 → 下一次训练建议”输出；健康陪练将五区、能力与建议改写为日常体感和健康语言；两种方式都直接省略不存在的指标 | `app/App.tsx`、`agent/coach.ts`、`agent/tools.ts` |
+| AI 复盘 | 用户确认后发送“请复盘”，AI 据摘要和当前解读方式解读 | 两种方式均按“心率五区占比表 → 可选极光路段 → 能力 → 下一次训练建议”输出；健康陪练只改变五区、能力与建议的语言，不添加开场总评或能力汇总段落；两种方式都直接省略不存在的指标 | `app/App.tsx`、`agent/coach.ts`、`agent/tools.ts` |
 | A/B 对比 | 对比两份已上传训练 | 调用 `compare_runs`，输出差异解读 | `analysis/digest.ts` |
 
 ---

@@ -50,7 +50,10 @@ describe('runAgent', () => {
     expect(HEALTH_COACH_SYSTEM_PROMPT).toContain('短时间快速发力')
     expect(HEALTH_COACH_SYSTEM_PROMPT).toMatch(/能完整说话.*呼吸加快但可控制/)
     expect(HEALTH_COACH_SYSTEM_PROMPT).toMatch(/不要说“缺少\/未记录\/无法判断\/建议补充”/)
-    expect(HEALTH_COACH_SYSTEM_PROMPT).not.toContain('骑行单次复盘的固定结构为：① 心率强度区间')
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toContain('① 今天的强度分布（五区表格及表后说明）；② 今天最舒服的一段（心流，仅 flowSegment 存在时）；③ 这次锻炼到了什么；④ 下次怎么骑')
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toMatch(/直接以“今天的强度分布”开头，不写“今天整体骑得怎么样”/)
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toMatch(/项目列完就结束该节，严禁追加“整体来说”“总的来看”“综合而言”/)
+    expect(HEALTH_COACH_SYSTEM_PROMPT).not.toContain('① 今天整体骑得怎么样')
   })
 
   it('系统提示词覆盖地形/起点引导与取消处理', () => {
