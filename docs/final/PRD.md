@@ -86,7 +86,7 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 | 对话框 | 输入自然语言；`＋` 上传 FIT/GPX/JSON | 回车/点击发送触发 AI；`＋` 可选文件；**中文输入法组词时回车不误发**（`isComposing` 守卫） | `chat/Composer.tsx`、`chat/ChatDock.tsx` |
 | AI 回复渲染 | 富文本渲染（react-markdown），包含标题/列表/表格/代码样式 | 回复无可见 `##`/`**` 等原始符号；长表格不挤破聊天栏 | `chat/ChatDock.tsx`、`app/styles.css` |
 | LLM 设置 | 右上角齿轮：Provider、Model、API Key | 支持 Kimi、DeepSeek、OpenAI、Google Gemini、Qwen；可显示/隐藏、测试 Key；各平台配置分别保存到浏览器 localStorage | `settings/SettingsGear.tsx`、`llm/provider.ts` |
-| 解读方式 | 右上角齿轮选择“进阶训练”或“健康陪练” | 默认进阶训练；保存后持久化到浏览器 localStorage；每次 Agent 请求使用当前所选人设的系统提示词 | `settings/SettingsGear.tsx`、`app/preferences.ts`、`agent/coach.ts` |
+| 解读方式 | 右上角齿轮选择“进阶训练”或“健康陪练” | 默认进阶训练；点选后立即生效并持久化到浏览器 localStorage，无需点击底部“保存”；每次 Agent 请求使用当前所选人设的系统提示词 | `settings/SettingsGear.tsx`、`app/preferences.ts`、`agent/coach.ts` |
 | 骑行心率设置 | 填写 HRmax、LTHR 或年龄；有效年龄直接回填 HRmax | 年龄 18～80，按 `round(208 - 0.7 × 年龄)` 实时写入 HRmax 输入框；用户可再手动修改；优先级 `LTHR > HRmax`；比例异常只提醒、不删除；设置保存在浏览器 localStorage | `settings/SettingsGear.tsx`、`app/preferences.ts` |
 
 ### 4.2 路线生成（核心）
@@ -267,7 +267,7 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 - [ ] 骑行复盘优先使用 km/h、W、rpm 等骑行指标，不用跑步配速表达。
 - [x] 骑行没有可用心率参考值时直接打开设置，不让 LLM 猜测或在对话中追问。
 - [x] 设置支持 LTHR、HRmax 与年龄回填；有效年龄立即计算并写入 HRmax，保存后按规定优先级在导入时固化到活动。
-- [x] 设置支持进阶训练与健康陪练两种解读方式，默认进阶训练，所选人设保存在当前浏览器并用于 Agent 提示词。
+- [x] 设置支持进阶训练与健康陪练两种解读方式，默认进阶训练；人设点选后立即生效，并保存在当前浏览器用于 Agent 提示词。
 - [x] 保存心率设置后，当前待复盘骑行无需重新上传即可采用设置并继续复盘。
 - [x] HRmax/LTHR 五区使用产品规定比例和统一向上取整的无缝整数边界。
 - [x] 骑行单次复盘的心率部分只显示 Z1-Z5 整数范围、占比条和时间，图表下不另写区间解说。

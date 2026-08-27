@@ -86,6 +86,10 @@ export const SettingsGear = ({
     window.setTimeout(() => hrmaxInputRef.current?.focus(), 0)
   }, [openHeartRateRequest])
 
+  useEffect(() => {
+    setMode(coachMode)
+  }, [coachMode])
+
   const parsedHeartRate = useMemo(() => readHeartRateDraft(heartRateDraft), [heartRateDraft])
   const estimatedHrmax = estimateHrmaxFromAge(parsedHeartRate.profile?.age)
   const activeReference = parsedHeartRate.profile
@@ -117,6 +121,13 @@ export const SettingsGear = ({
       ...(hrmax !== undefined ? { hrmax: String(hrmax) } : {})
     }))
     setStatus('')
+  }
+
+  const selectCoachMode = (value: CoachMode) => {
+    const savedMode = saveCoachMode(value)
+    setMode(savedMode)
+    onCoachModeChange(savedMode)
+    setStatus(`解读方式已切换为${savedMode === 'health' ? '健康陪练' : '进阶训练'}`)
   }
 
   const onTest = async () => {
@@ -160,7 +171,7 @@ export const SettingsGear = ({
                 role="radio"
                 aria-checked={mode === 'training'}
                 className={mode === 'training' ? 'active' : ''}
-                onClick={() => { setMode('training'); setStatus('') }}
+                onClick={() => selectCoachMode('training')}
               >
                 <strong>进阶训练</strong>
                 <span>训练刺激与能力方向</span>
@@ -170,7 +181,7 @@ export const SettingsGear = ({
                 role="radio"
                 aria-checked={mode === 'health'}
                 className={mode === 'health' ? 'active' : ''}
-                onClick={() => { setMode('health'); setStatus('') }}
+                onClick={() => selectCoachMode('health')}
               >
                 <strong>健康陪练</strong>
                 <span>易懂体感与健康建议</span>
