@@ -24,9 +24,11 @@ import { ActivityDashboard } from './ActivityDashboard'
 import { DitherMapBackdrop } from './DitherMapBackdrop'
 import {
   loadCyclingHeartRateProfile,
+  loadCoachMode,
   loadHomeBackground,
   resolveCyclingHeartRateReference,
   type CyclingHeartRateProfile,
+  type CoachMode,
   type HomeBackground
 } from './preferences'
 import { APP_NAME, APP_SLUG } from './brand'
@@ -83,6 +85,7 @@ export default function App() {
   const [pendingReview, setPendingReview] = useState<PendingReview | null>(null)
   const [config, setConfig] = useState<LlmConfig | null>(loadConfig())
   const [heartRateProfile, setHeartRateProfile] = useState<CyclingHeartRateProfile>(loadCyclingHeartRateProfile())
+  const [coachMode, setCoachMode] = useState<CoachMode>(loadCoachMode())
   const [openHeartRateSettingsRequest, setOpenHeartRateSettingsRequest] = useState(0)
   const [homeBackground, setHomeBackground] = useState<HomeBackground>(loadHomeBackground())
   const runs = useRef<Map<string, Run>>(new Map())
@@ -195,7 +198,7 @@ export default function App() {
     paintRoute(routes[i])
   }
 
-  const { turns, busy, send, pushAssistant } = useChatAgent({ config, ctx })
+  const { turns, busy, send, pushAssistant } = useChatAgent({ config, ctx, coachMode })
   // 卡片/选点活跃时是“等用户操作”，不算 AI 在思考；只有真正等模型时才显示输入动画
   const cardActive = !!(terrainResolve || startResolve || picking)
 
@@ -259,7 +262,9 @@ export default function App() {
     }
     setPendingReview(null)
     const request = review.activityType === 'cycling'
-      ? `[上传骑行训练] ${review.fileName}，请复盘。心率强度区间只给 Z1-Z5 占比图表；再判断本次训练对续航、爬坡、冲刺的刺激，没有可靠功率时不显示冲刺。能力后直接给下一次训练建议。`
+      ? coachMode === 'health'
+        ? `[上传骑行训练] ${review.fileName}，请按健康陪练方式复盘，用日常语言解释强度、身体得到的锻炼和下一次建议。`
+        : `[上传骑行训练] ${review.fileName}，请按进阶训练方式复盘。心率强度区间只给 Z1-Z5 占比图表；再判断本次训练对续航、爬坡、冲刺的刺激，没有可靠功率时不显示冲刺。能力后直接给下一次训练建议。`
       : `[上传${review.activityLabel}训练] ${review.fileName}，请复盘`
     void send(
       request,
@@ -315,6 +320,8 @@ export default function App() {
         <SettingsGear
           onSaved={setConfig}
           onHeartRateSaved={setHeartRateProfile}
+          coachMode={coachMode}
+          onCoachModeChange={setCoachMode}
           homeBackground={homeBackground}
           onHomeBackgroundChange={setHomeBackground}
           openHeartRateRequest={openHeartRateSettingsRequest}

@@ -1,8 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
-import { runAgent, COACH_SYSTEM_PROMPT, CYCLING_HEART_RATE_SETTINGS_GUIDANCE } from './coach'
+import {
+  buildCoachSystemPrompt,
+  runAgent,
+  COACH_SYSTEM_PROMPT,
+  CYCLING_HEART_RATE_SETTINGS_GUIDANCE,
+  HEALTH_COACH_SYSTEM_PROMPT
+} from './coach'
 
 describe('runAgent', () => {
   it('系统提示词支持跑步和骑行复盘且拒绝无关请求', () => {
+    expect(buildCoachSystemPrompt('training')).toBe(COACH_SYSTEM_PROMPT)
     expect(COACH_SYSTEM_PROMPT).toContain('跑步')
     expect(COACH_SYSTEM_PROMPT).toContain('骑行')
     expect(COACH_SYSTEM_PROMPT).toContain('activityType')
@@ -22,7 +29,7 @@ describe('runAgent', () => {
     expect(COACH_SYSTEM_PROMPT).toContain('flowSegment')
     expect(COACH_SYSTEM_PROMPT).toMatch(/referenceRequired=true.*只提示/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/不要在对话里追问数值/)
-    expect(COACH_SYSTEM_PROMPT).toMatch(/LTHR、手填 HRmax、基于年龄估算/)
+    expect(COACH_SYSTEM_PROMPT).toMatch(/LTHR、HRmax（手填或基于年龄计算后回填）/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/禁止用本次骑行最高心率.*不要自行估算/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/<73%.*73–<81%.*≥90%/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/<81%.*81–<90%.*≥100%/)
@@ -32,6 +39,18 @@ describe('runAgent', () => {
     expect(COACH_SYSTEM_PROMPT).toMatch(/严禁生成.*关键证据/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/字段不存在.*跳过/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/不复述缺失指标|不要说“缺少\/未记录\/无法判断\/建议补充”/)
+  })
+
+  it('健康陪练使用小白可理解的强度和能力表达', () => {
+    expect(buildCoachSystemPrompt('health')).toBe(HEALTH_COACH_SYSTEM_PROMPT)
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toContain('非常轻松（Z1）')
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toContain('轻松有氧（Z2）')
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toContain('持续活动时不容易累')
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toContain('腿部力量和应对上坡')
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toContain('短时间快速发力')
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toMatch(/能完整说话.*呼吸加快但可控制/)
+    expect(HEALTH_COACH_SYSTEM_PROMPT).toMatch(/不要说“缺少\/未记录\/无法判断\/建议补充”/)
+    expect(HEALTH_COACH_SYSTEM_PROMPT).not.toContain('骑行单次复盘的固定结构为：① 心率强度区间')
   })
 
   it('系统提示词覆盖地形/起点引导与取消处理', () => {
@@ -75,5 +94,16 @@ describe('runAgent', () => {
     )
     expect(complete).toHaveBeenCalledTimes(2)
     expect(out.at(-1)!.content).toContain('已定位')
+  })
+
+  it('健康陪练模式把对应系统提示词发给模型', async () => {
+    const complete = vi.fn().mockResolvedValue({ message: { role: 'assistant', content: '今天骑得很稳。' } })
+    await runAgent(
+      { provider: 'kimi', model: 'kimi-k2.5', apiKey: 'k' },
+      [{ role: 'user', content: '请复盘这次骑行' }],
+      { runs: new Map(), onRoute: vi.fn() } as any,
+      { coachMode: 'health', complete: complete as any }
+    )
+    expect(complete.mock.calls[0][1][0]).toEqual({ role: 'system', content: HEALTH_COACH_SYSTEM_PROMPT })
   })
 })

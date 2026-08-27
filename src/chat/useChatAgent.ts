@@ -1,10 +1,15 @@
 import { useState, useRef } from 'react'
 import { runAgent } from '@/agent/coach'
 import type { ToolContext } from '@/agent/tools'
+import type { CoachMode } from '@/app/preferences'
 import type { ChatMessage, LlmConfig } from '@/llm/provider'
 import type { ChatTurn } from './ChatDock'
 
-export const useChatAgent = ({ config, ctx }: { config: LlmConfig | null; ctx: ToolContext }) => {
+export const useChatAgent = ({ config, ctx, coachMode }: {
+  config: LlmConfig | null
+  ctx: ToolContext
+  coachMode: CoachMode
+}) => {
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [busy, setBusy] = useState(false)
   const history = useRef<ChatMessage[]>([])
@@ -19,7 +24,7 @@ export const useChatAgent = ({ config, ctx }: { config: LlmConfig | null; ctx: T
     history.current.push(userMsg)
     setBusy(true)
     try {
-      const produced = await runAgent(config, history.current, ctx)
+      const produced = await runAgent(config, history.current, ctx, { coachMode })
       history.current.push(...produced)
       const finalText = [...produced].reverse().find(m => m.role === 'assistant' && m.content)?.content
       if (finalText) pushAssistant(finalText)

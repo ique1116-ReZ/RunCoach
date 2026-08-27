@@ -15,8 +15,10 @@ import {
   loadCyclingHeartRateProfile,
   parseOptionalInteger,
   resolveCyclingHeartRateReference,
+  saveCoachMode,
   saveCyclingHeartRateProfile,
   saveHomeBackground,
+  type CoachMode,
   type CyclingHeartRateProfile,
   type HomeBackground
 } from '@/app/preferences'
@@ -54,12 +56,16 @@ const readHeartRateDraft = (draft: HeartRateDraft): { profile?: CyclingHeartRate
 export const SettingsGear = ({
   onSaved,
   onHeartRateSaved,
+  coachMode,
+  onCoachModeChange,
   homeBackground,
   onHomeBackgroundChange,
   openHeartRateRequest = 0
 }: {
   onSaved: (config: LlmConfig) => void
   onHeartRateSaved: (profile: CyclingHeartRateProfile) => void
+  coachMode: CoachMode
+  onCoachModeChange: (value: CoachMode) => void
   homeBackground: HomeBackground
   onHomeBackgroundChange: (value: HomeBackground) => void
   openHeartRateRequest?: number
@@ -67,6 +73,7 @@ export const SettingsGear = ({
   const initialConfig = loadConfig() ?? loadConfigForProvider('kimi')
   const [open, setOpen] = useState(false)
   const [cfg, setCfg] = useState<LlmConfig>(initialConfig)
+  const [mode, setMode] = useState<CoachMode>(coachMode)
   const [heartRateDraft, setHeartRateDraft] = useState<HeartRateDraft>(() => profileToDraft(loadCyclingHeartRateProfile()))
   const [bg, setBg] = useState<HomeBackground>(homeBackground)
   const [show, setShow] = useState(false)
@@ -101,6 +108,17 @@ export const SettingsGear = ({
     setStatus('')
   }
 
+  const updateAge = (value: string) => {
+    const age = parseOptionalInteger(value)
+    const hrmax = estimateHrmaxFromAge(age)
+    setHeartRateDraft(current => ({
+      ...current,
+      age: value,
+      ...(hrmax !== undefined ? { hrmax: String(hrmax) } : {})
+    }))
+    setStatus('')
+  }
+
   const onTest = async () => {
     if (!cfg.apiKey.trim()) {
       setStatus('请先输入 API Key。')
@@ -118,10 +136,12 @@ export const SettingsGear = ({
       return
     }
     const savedHeartRate = saveCyclingHeartRateProfile(parsed.profile)
+    const savedMode = saveCoachMode(mode)
     const savedConfig = saveConfig(cfg)
     saveHomeBackground(bg)
     if (savedConfig) onSaved(savedConfig)
     onHeartRateSaved(savedHeartRate)
+    onCoachModeChange(savedMode)
     onHomeBackgroundChange(bg)
     setHeartRateDraft(profileToDraft(savedHeartRate))
     setStatus('已保存到当前浏览器')
@@ -132,6 +152,32 @@ export const SettingsGear = ({
       <button className="gear-btn" title="设置" aria-label="设置" aria-expanded={open} onClick={() => setOpen(value => !value)}>⚙</button>
       {open && (
         <div className="gear-panel">
+          <section className="settings-section" aria-labelledby="coach-mode-settings-title">
+            <h2 id="coach-mode-settings-title">解读方式</h2>
+            <div className="coach-mode-control" role="radiogroup" aria-labelledby="coach-mode-settings-title">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === 'training'}
+                className={mode === 'training' ? 'active' : ''}
+                onClick={() => { setMode('training'); setStatus('') }}
+              >
+                <strong>进阶训练</strong>
+                <span>训练刺激与能力方向</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === 'health'}
+                className={mode === 'health' ? 'active' : ''}
+                onClick={() => { setMode('health'); setStatus('') }}
+              >
+                <strong>健康陪练</strong>
+                <span>易懂体感与健康建议</span>
+              </button>
+            </div>
+          </section>
+
           <section className="settings-section" aria-labelledby="llm-settings-title">
             <h2 id="llm-settings-title">AI 模型</h2>
             <label htmlFor="llm-provider">模型平台</label>
@@ -178,7 +224,7 @@ export const SettingsGear = ({
                   inputMode="numeric"
                   placeholder="18～80"
                   value={heartRateDraft.age}
-                  onChange={event => updateHeartRateDraft('age', event.target.value)}
+                  onChange={event => updateAge(event.target.value)}
                 />
               </div>
             </div>
@@ -191,8 +237,8 @@ export const SettingsGear = ({
               onChange={event => updateHeartRateDraft('lthr', event.target.value)}
             />
             {parsedHeartRate.error && <div className="settings-note warning">{parsedHeartRate.error}</div>}
-            {!heartRateDraft.hrmax && estimatedHrmax !== undefined && (
-              <div className="settings-note">年龄估算 HRmax：{estimatedHrmax} bpm · 临时区间</div>
+            {estimatedHrmax !== undefined && heartRateDraft.hrmax === String(estimatedHrmax) && (
+              <div className="settings-note">已按年龄填入 HRmax：{estimatedHrmax} bpm</div>
             )}
             {activeReference && (
               <div className="settings-note active">当前采用：{activeReference.base} {activeReference.value} bpm</div>

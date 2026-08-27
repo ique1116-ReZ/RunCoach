@@ -1,6 +1,7 @@
 import type { HeartRateReference } from '@runs/types'
 
 export type HomeBackground = 'contour' | 'dither'
+export type CoachMode = 'training' | 'health'
 
 export type CyclingHeartRateProfile = {
   hrmax?: number
@@ -12,6 +13,7 @@ export type CyclingHeartRateProfile = {
 const HOME_BACKGROUND_KEY = 'virtualcoach.homeBackground'
 const LEGACY_HOME_BACKGROUND_KEY = 'runcoach.homeBackground'
 const CYCLING_HEART_RATE_KEY = 'virtualcoach.cyclingHeartRate'
+const COACH_MODE_KEY = 'virtualcoach.coachMode'
 
 const isIntegerInRange = (value: unknown, min: number, max: number): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max
@@ -71,6 +73,19 @@ export const cyclingHeartRateRatioWarning = (profile: CyclingHeartRateProfile): 
 
 export const isHomeBackground = (value: unknown): value is HomeBackground =>
   value === 'contour' || value === 'dither'
+
+export const isCoachMode = (value: unknown): value is CoachMode =>
+  value === 'training' || value === 'health'
+
+export const loadCoachMode = (): CoachMode => {
+  const raw = localStorage.getItem(COACH_MODE_KEY)
+  return isCoachMode(raw) ? raw : 'training'
+}
+
+export const saveCoachMode = (value: CoachMode): CoachMode => {
+  localStorage.setItem(COACH_MODE_KEY, value)
+  return value
+}
 
 export const loadHomeBackground = (): HomeBackground => {
   const raw = localStorage.getItem(HOME_BACKGROUND_KEY) ?? localStorage.getItem(LEGACY_HOME_BACKGROUND_KEY)

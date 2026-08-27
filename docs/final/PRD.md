@@ -9,7 +9,7 @@
 
 ## 0. 文档说明
 
-本 PRD 面向研发可直接落地：每个功能给出**行为描述 + 验收标准 + 涉及模块**，AI 与人都可读。文中所有功能均与当前代码一致（`npm test` 58 项通过、`npm run build` 通过）。
+本 PRD 面向研发可直接落地：每个功能给出**行为描述 + 验收标准 + 涉及模块**，AI 与人都可读。文中所有功能均与当前代码一致（`npm test` 63 项通过、`npm run build` 通过）。
 
 ---
 
@@ -86,7 +86,8 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 | 对话框 | 输入自然语言；`＋` 上传 FIT/GPX/JSON | 回车/点击发送触发 AI；`＋` 可选文件；**中文输入法组词时回车不误发**（`isComposing` 守卫） | `chat/Composer.tsx`、`chat/ChatDock.tsx` |
 | AI 回复渲染 | 富文本渲染（react-markdown），包含标题/列表/表格/代码样式 | 回复无可见 `##`/`**` 等原始符号；长表格不挤破聊天栏 | `chat/ChatDock.tsx`、`app/styles.css` |
 | LLM 设置 | 右上角齿轮：Provider、Model、API Key | 支持 Kimi、DeepSeek、OpenAI、Google Gemini、Qwen；可显示/隐藏、测试 Key；各平台配置分别保存到浏览器 localStorage | `settings/SettingsGear.tsx`、`llm/provider.ts` |
-| 骑行心率设置 | 填写 HRmax、LTHR 或年龄；年龄用于临时估算 HRmax | 年龄 18～80，`round(208 - 0.7 × 年龄)`；优先级 `LTHR > 手填 HRmax > 年龄估算 HRmax`；比例异常只提醒、不删除；设置保存在浏览器 localStorage | `settings/SettingsGear.tsx`、`app/preferences.ts` |
+| 解读方式 | 右上角齿轮选择“进阶训练”或“健康陪练” | 默认进阶训练；保存后持久化到浏览器 localStorage；每次 Agent 请求使用当前所选人设的系统提示词 | `settings/SettingsGear.tsx`、`app/preferences.ts`、`agent/coach.ts` |
+| 骑行心率设置 | 填写 HRmax、LTHR 或年龄；有效年龄直接回填 HRmax | 年龄 18～80，按 `round(208 - 0.7 × 年龄)` 实时写入 HRmax 输入框；用户可再手动修改；优先级 `LTHR > HRmax`；比例异常只提醒、不删除；设置保存在浏览器 localStorage | `settings/SettingsGear.tsx`、`app/preferences.ts` |
 
 ### 4.2 路线生成（核心）
 
@@ -110,9 +111,9 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 | 海拔坡度图 | 回放条内显示海拔曲线，橙色=上坡、蓝色=平路、绿色=下坡；当前点随播放移动 | 用户能看出当下处于上坡/平路/下坡，并看到当前海拔 | `app/ReplayBar.tsx`、`app/styles.css` |
 | 复盘确认 | 上传后先出现“训练已导入”确认卡，不自动请求 AI | 用户只想看回放时不会触发复盘；点击“开始复盘”才调用 AI | `app/App.tsx`、`chat/ChatDock.tsx` |
 | 数据看板 | 导入训练后查看概览、趋势和关键指标 | 可按指标切换趋势图；本地导出 PNG 看板和 CSV 点位数据 | `app/ActivityDashboard.tsx`、`analysis/dashboard.ts` |
-| 数据摘要 | 距离、用时、配速、心率、功率、步频、高程、分段检查点；骑行增加 Z1-Z5 心率占比条、续航/爬坡/冲刺训练刺激和可选极光路段 | 心率区间只能使用明确的骑行 LTHR、HRmax 或设置中的年龄估算 HRmax；不以单次最高心率兜底；冲刺只在功率覆盖达到 80% 时显示；极光路段至少连续 8 分钟且速度、心率稳定 | `analysis/digest.ts`、`analysis/cycling.ts` |
+| 数据摘要 | 距离、用时、配速、心率、功率、步频、高程、分段检查点；骑行增加 Z1-Z5 心率占比条、续航/爬坡/冲刺训练刺激和可选极光路段 | 心率区间只能使用明确的骑行 LTHR 或 HRmax（含年龄回填值）；不以单次最高心率兜底；冲刺只在功率覆盖达到 80% 时显示；极光路段至少连续 8 分钟且速度、心率稳定 | `analysis/digest.ts`、`analysis/cycling.ts` |
 | 心率设置门禁 | 骑行有逐点心率但没有可用参考值时，摘要返回 `referenceRequired=true` | 应用直接打开设置并暂停复盘；不让 LLM 猜测或在对话中追问；保存后再次点击即可复盘 | `agent/coach.ts`、`agent/tools.ts`、`app/App.tsx` |
-| AI 复盘 | 用户确认后发送“请复盘”，AI 据摘要解读 | 骑行回复按“心率五区占比表 → 可选极光路段 → 能力提升 → 下一次训练建议”输出；心率表后不加区间解说，能力后不加独立证据章节；所有不存在的指标直接省略 | `app/App.tsx`、`agent/coach.ts`、`agent/tools.ts` |
+| AI 复盘 | 用户确认后发送“请复盘”，AI 据摘要和当前解读方式解读 | 进阶训练按“心率五区占比表 → 可选极光路段 → 能力提升 → 下一次训练建议”输出；健康陪练将五区、能力与建议改写为日常体感和健康语言；两种方式都直接省略不存在的指标 | `app/App.tsx`、`agent/coach.ts`、`agent/tools.ts` |
 | A/B 对比 | 对比两份已上传训练 | 调用 `compare_runs`，输出差异解读 | `analysis/digest.ts` |
 
 ---
@@ -143,7 +144,7 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 
 骑行心率区间采用以下固定产品规则：HRmax 为 `<73% / 73%～<81% / 81%～<85% / 85%～<90% / ≥90%`；LTHR 为 `<81% / 81%～<90% / 90%～<94% / 94%～<100% / ≥100%`。整数边界统一使用 `ceil(比例 × 锚点)`，上一区间上限等于下一区间下限减 1。HRmax=180 时为 `≤131 / 132～145 / 146～152 / 153～161 / ≥162 bpm`；LTHR=170 时为 `≤137 / 138～152 / 153～159 / 160～169 / ≥170 bpm`。
 
-心率参考值在导入时固化到活动，后续改设置不会静默重算已经导入的历史活动。配置优先级为：设置 LTHR、FIT LTHR、设置 HRmax、FIT HRmax、年龄估算 HRmax。若同时存在 LTHR 与 HRmax（含年龄估算），`LTHR / HRmax` 不在 `0.80～0.95` 时显示复核提醒，但保留用户输入。
+心率参考值在导入时固化到活动，后续改设置不会静默重算已经导入的历史活动。输入有效年龄会先把估算值写入设置 HRmax；随后配置优先级为：设置 LTHR、FIT LTHR、设置 HRmax、FIT HRmax。若同时存在 LTHR 与 HRmax，`LTHR / HRmax` 不在 `0.80～0.95` 时显示复核提醒，但保留用户输入。
 
 | 工具 | 用途 |
 |---|---|
@@ -223,7 +224,7 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 - **前端**：React 19 + TypeScript（`strict`）+ Vite 7 + MapLibre GL 5；纯前端无后端。
 - **AI**：Kimi、DeepSeek、OpenAI、Google Gemini、Qwen 的 Chat Completions / OpenAI 兼容接口与 function calling。
 - **测试**：Vitest，对纯逻辑（路由距离逼近、地名解析、GPX 导出、训练摘要、工具映射、agent 循环）做单测；UI 走构建门 + 手动验收。
-- **质量基线**：`npm test` 58 项通过；`npm run build` 通过。
+- **质量基线**：`npm test` 63 项通过；`npm run build` 通过。
 - **UI 规范**：深色玻璃叠加层，**禁用阴影、统一 1px 描边**。
 
 ---
@@ -265,7 +266,8 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 - [ ] 点击“开始复盘”后 AI 才引用解析摘要输出训练复盘。
 - [ ] 骑行复盘优先使用 km/h、W、rpm 等骑行指标，不用跑步配速表达。
 - [x] 骑行没有可用心率参考值时直接打开设置，不让 LLM 猜测或在对话中追问。
-- [x] 设置支持 LTHR、HRmax 与年龄估算，并按规定优先级在导入时固化到活动。
+- [x] 设置支持 LTHR、HRmax 与年龄回填；有效年龄立即计算并写入 HRmax，保存后按规定优先级在导入时固化到活动。
+- [x] 设置支持进阶训练与健康陪练两种解读方式，默认进阶训练，所选人设保存在当前浏览器并用于 Agent 提示词。
 - [x] 保存心率设置后，当前待复盘骑行无需重新上传即可采用设置并继续复盘。
 - [x] HRmax/LTHR 五区使用产品规定比例和统一向上取整的无缝整数边界。
 - [x] 骑行单次复盘的心率部分只显示 Z1-Z5 整数范围、占比条和时间，图表下不另写区间解说。

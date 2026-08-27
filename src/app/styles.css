@@ -393,6 +393,59 @@ textarea {
   font-weight: 700;
 }
 
+.coach-mode-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding: 3px;
+  border: 1px solid var(--field-border);
+  border-radius: 8px;
+  background: var(--field-bg);
+}
+
+.coach-mode-control button {
+  min-width: 0;
+  min-height: 54px;
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 7px 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms, background 150ms, color 150ms;
+}
+
+.coach-mode-control button:hover,
+.coach-mode-control button:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.coach-mode-control button.active {
+  border-color: rgba(122, 167, 255, 0.42);
+  background: rgba(122, 167, 255, 0.12);
+  color: var(--text);
+}
+
+.coach-mode-control strong,
+.coach-mode-control span {
+  display: block;
+  letter-spacing: 0;
+}
+
+.coach-mode-control strong {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.coach-mode-control span {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .gear-panel label {
   font-size: 11px;
   text-transform: uppercase;

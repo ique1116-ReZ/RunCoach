@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   cyclingHeartRateRatioWarning,
   estimateHrmaxFromAge,
+  loadCoachMode,
   loadCyclingHeartRateProfile,
   resolveCyclingHeartRateReference,
+  saveCoachMode,
   saveCyclingHeartRateProfile
 } from './preferences'
 
@@ -60,5 +62,24 @@ describe('cycling heart-rate preferences', () => {
   it('LTHR 与 HRmax 比例超出 80%～95% 时提示复核', () => {
     expect(cyclingHeartRateRatioWarning({ lthr: 160, hrmax: 190 })).toBeUndefined()
     expect(cyclingHeartRateRatioWarning({ lthr: 120, hrmax: 190 })).toContain('63%')
+  })
+})
+
+describe('coach mode preferences', () => {
+  it('首次使用默认采用进阶训练模式', () => {
+    stubStorage()
+    expect(loadCoachMode()).toBe('training')
+  })
+
+  it('在当前浏览器保存并恢复健康陪练模式', () => {
+    const store = stubStorage()
+    expect(saveCoachMode('health')).toBe('health')
+    expect(store['virtualcoach.coachMode']).toBe('health')
+    expect(loadCoachMode()).toBe('health')
+  })
+
+  it('无效的本地值回退到进阶训练模式', () => {
+    stubStorage({ 'virtualcoach.coachMode': 'unknown' })
+    expect(loadCoachMode()).toBe('training')
   })
 })

@@ -133,7 +133,7 @@ export const buildRunDigest = (run: Run) => {
     lapCount: run.lapSummaries.length,
     summaryPreview: run.summaryEntries.slice(0, 14),
     analysisFocus: isCycling
-      ? '骑行训练：心率强度区间只展示 Z1-Z5 占比图表；再判断本次训练对续航、爬坡和冲刺的刺激，冲刺仅在 capabilities 中存在时展示；只引用摘要中实际存在的指标，并检查是否有极光路段；能力后直接给下一次训练建议，不要使用跑步配速表达。'
+      ? '骑行训练：使用 cyclingAnalysis 中的心率分区、能力刺激和可选心流路段；只引用摘要中实际存在的指标，不要使用跑步配速表达。'
       : run.activityType === 'running'
         ? '跑步训练：优先分析配速、心率、步频、爬升和前后程稳定性。'
         : '运动类型未知：结合文件名、原始摘要和用户描述判断；不确定时明确说明，不要武断归类。',
