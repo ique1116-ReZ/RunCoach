@@ -48,7 +48,7 @@ VITE_ORS_KEY=你的 OpenRouteService key
 - `VITE_MAPTILER_KEY`：地图底图与地名搜索。
 - `VITE_ORS_KEY`：真实路网路线生成。
 
-LLM API Key 不写入 `.env.local`。打开页面后点击右上角齿轮，配置 Kimi 或 DeepSeek 的 API Key，并点击“测试”确认可用。
+LLM API Key 不写入 `.env.local`。打开页面后点击右上角齿轮，可选择 Kimi、DeepSeek、OpenAI、Google Gemini 或通义千问 Qwen，选择模型、填写对应平台的 API Key，并点击“测试 API”确认可用。每个平台的模型和 Key 分开保存在当前浏览器，切换回来时会恢复上次保存的配置。
 
 ## GitHub Pages
 
@@ -61,7 +61,7 @@ LLM API Key 不写入 `.env.local`。打开页面后点击右上角齿轮，配�
 - `VITE_MAPTILER_KEY`
 - `VITE_ORS_KEY`
 
-底图在没有 MapTiler Key 时会自动使用 OpenFreeMap，FIT / GPX / JSON 导入、轨迹回放、数据看板和 AI 复盘仍可使用。每位同事的 Kimi / DeepSeek Key 由他本人在右上角设置中填写，只保存在当前浏览器的 `localStorage`，不会进入 GitHub 构建。
+底图在没有 MapTiler Key 时会自动使用 OpenFreeMap，FIT / GPX / JSON 导入、轨迹回放、数据看板和 AI 复盘仍可使用。每位同事的 LLM API Key 和骑行心率设置由他本人在右上角设置中填写，只保存在当前浏览器的 `localStorage`，不会进入 GitHub 构建，也不会被其他访问者共享。
 
 `VITE_*` 变量会被 Vite 编译到前端产物中，不是服务端秘密。用于公开 Pages 时，应在 MapTiler / OpenRouteService 后台设置来源域名和用量限制；不应使用具有其他高权限的 Key。
 
@@ -89,7 +89,9 @@ LLM API Key 不写入 `.env.local`。打开页面后点击右上角齿轮，配�
 4. 底部回放条可拖动查看距离、配速或骑行速度、心率、功率与踏频。
 5. 在“训练已导入”卡片中选择打开数据看板，或开始 AI 复盘。
 
-骑行 AI 复盘的心率部分只展示 Z1-Z5 的 bpm 范围、占比条和时间，不在图表下另写区间解说。之后依次展示可选的极光路段、续航/爬坡/冲刺训练刺激和下一次训练建议，不再生成独立的证据章节。无可靠功率时整项省略冲刺，也不解释缺失原因。若当前训练没有可用的骑行 HRmax 或 LTHR，AI 会先追问其中一个；用户需注明类型和整数 bpm，例如 `HRmax 188` 或 `LTHR 168`。系统不会用本次骑行最高心率反推，也不会改用年龄公式猜测。
+骑行 AI 复盘的心率部分只展示 Z1-Z5 的 bpm 范围、占比条和时间，不在图表下另写区间解说。之后依次展示可选的极光路段、续航/爬坡/冲刺训练刺激和下一次训练建议，不再生成独立的证据章节。无可靠功率时整项省略冲刺，也不解释缺失原因。
+
+首次使用时可在右上角设置中填写骑行阈值心率 LTHR、最大心率 HRmax 或年龄。参考值按 `LTHR > 手填 HRmax > 年龄估算 HRmax` 选择；年龄限制为 18～80 岁，并按 `round(208 - 0.7 × 年龄)` 得到临时 HRmax。系统不会从单次骑行最高心率反推个人锚点。若三项都未填写且 FIT 也不含个人参考值，点击“开始 AI 复盘”会直接打开设置引导填写，不会让 LLM 猜测或在对话中追问。保存后的设置用于新导入活动；每次导入时会把当时采用的参考值固化到该活动。
 
 HRmax 五区比例为 `<73%`、`73%～<81%`、`81%～<85%`、`85%～<90%`、`≥90%`；LTHR 五区比例为 `<81%`、`81%～<90%`、`90%～<94%`、`94%～<100%`、`≥100%`。所有 bpm 下限统一向上取整，上一区间上限等于下一区间下限减 1，保证五区没有重叠或空档。用户回答后，AI 会保存到当前骑行、重新计算摘要，再继续完整复盘。
 
@@ -110,7 +112,7 @@ HRmax 五区比例为 `<73%`、`73%～<81%`、`81%～<85%`、`85%～<90%`、`≥
 - MapLibre GL 地图渲染
 - MapTiler 底图与地名搜索
 - OpenRouteService 路线生成
-- Kimi / DeepSeek OpenAI-compatible tool calling
+- Kimi / DeepSeek / OpenAI / Google Gemini / Qwen 工具调用
 - `fit-file-parser` 解析 FIT
 - `fast-xml-parser` 解析 GPX
 - Vitest 覆盖核心逻辑
@@ -134,8 +136,8 @@ npm run build
 
 当前验证结果：
 
-- 11 个测试文件通过。
-- 49 个测试通过。
+- 12 个测试文件通过。
+- 58 个测试通过。
 - 生产构建通过。
 
 构建时可能出现 chunk size warning，主要来自地图和解析库体积，对应用主流程不构成功能阻塞。

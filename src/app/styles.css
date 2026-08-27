@@ -324,7 +324,7 @@ textarea {
   position: absolute;
   top: 16px;
   right: 16px;
-  z-index: 10;
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -358,12 +358,14 @@ textarea {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 280px;
+  width: 350px;
+  max-height: calc(100vh - 76px);
+  overflow-y: auto;
   background: var(--panel-bg);
   backdrop-filter: var(--panel-blur);
   border: 1px solid var(--panel-border);
   border-radius: var(--panel-radius);
-  padding: 14px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -372,12 +374,50 @@ textarea {
   transform-origin: top right;
 }
 
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section + .settings-section {
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.settings-section h2 {
+  margin: 0 0 1px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
 .gear-panel label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-muted);
   margin-bottom: -4px;
+}
+
+.settings-input-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.settings-input-grid > div {
+  min-width: 0;
+}
+
+.settings-input-grid label {
+  display: block;
+  min-height: 27px;
+  margin: 0 0 5px;
+  line-height: 1.35;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .gear-panel input,
@@ -463,6 +503,20 @@ textarea {
   font-size: 12px;
   color: var(--text-muted);
   padding: 4px 0 0;
+}
+
+.settings-note {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-note.active {
+  color: var(--green);
+}
+
+.settings-note.warning {
+  color: #fbbf24;
 }
 
 /* ── Route preview card (top-right, below HUD row) ── */
@@ -1118,7 +1172,7 @@ textarea {
   top: 14px;
   left: 14px;
   bottom: 14px;
-  width: 380px;
+  width: min(440px, calc(100vw - 28px));
   transform: none;
   border-radius: 14px;
 }
@@ -1742,7 +1796,7 @@ input[type="range"] {
   }
 
   .gear-panel {
-    width: min(320px, calc(100vw - 32px));
+    width: min(350px, calc(100vw - 32px));
   }
 
   .map-status {

@@ -1,64 +1,223 @@
-// src/settings/SettingsGear.tsx
-import { useState } from 'react'
-import { type LlmConfig, type LlmProvider, llmProviderMeta, testApiKey, saveConfig, loadConfig } from '@/llm/provider'
-import { saveHomeBackground, type HomeBackground } from '@/app/preferences'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type LlmConfig,
+  type LlmProvider,
+  llmProviderMeta,
+  llmProviders,
+  loadConfig,
+  loadConfigForProvider,
+  saveConfig,
+  testApiKey
+} from '@/llm/provider'
+import {
+  cyclingHeartRateRatioWarning,
+  estimateHrmaxFromAge,
+  loadCyclingHeartRateProfile,
+  parseOptionalInteger,
+  resolveCyclingHeartRateReference,
+  saveCyclingHeartRateProfile,
+  saveHomeBackground,
+  type CyclingHeartRateProfile,
+  type HomeBackground
+} from '@/app/preferences'
 
-export const SettingsGear = ({ onSaved, homeBackground, onHomeBackgroundChange }: {
-  onSaved: (c: LlmConfig) => void
+type HeartRateDraft = {
+  hrmax: string
+  lthr: string
+  age: string
+}
+
+const profileToDraft = (profile: CyclingHeartRateProfile): HeartRateDraft => ({
+  hrmax: profile.hrmax?.toString() ?? '',
+  lthr: profile.lthr?.toString() ?? '',
+  age: profile.age?.toString() ?? ''
+})
+
+const readHeartRateDraft = (draft: HeartRateDraft): { profile?: CyclingHeartRateProfile; error?: string } => {
+  const fields = [
+    { key: 'hrmax' as const, value: draft.hrmax, label: '最大心率', min: 30, max: 230 },
+    { key: 'lthr' as const, value: draft.lthr, label: '阈值心率', min: 30, max: 230 },
+    { key: 'age' as const, value: draft.age, label: '年龄', min: 18, max: 80 }
+  ]
+  const profile: CyclingHeartRateProfile = {}
+  for (const field of fields) {
+    if (!field.value.trim()) continue
+    const parsed = parseOptionalInteger(field.value)
+    if (parsed === undefined || parsed < field.min || parsed > field.max) {
+      return { error: `${field.label}请输入 ${field.min}～${field.max} 之间的整数。` }
+    }
+    profile[field.key] = parsed
+  }
+  return { profile }
+}
+
+export const SettingsGear = ({
+  onSaved,
+  onHeartRateSaved,
+  homeBackground,
+  onHomeBackgroundChange,
+  openHeartRateRequest = 0
+}: {
+  onSaved: (config: LlmConfig) => void
+  onHeartRateSaved: (profile: CyclingHeartRateProfile) => void
   homeBackground: HomeBackground
   onHomeBackgroundChange: (value: HomeBackground) => void
+  openHeartRateRequest?: number
 }) => {
+  const initialConfig = loadConfig() ?? loadConfigForProvider('kimi')
   const [open, setOpen] = useState(false)
-  const [cfg, setCfg] = useState<LlmConfig>(
-    loadConfig() ?? { provider: 'kimi', model: llmProviderMeta.kimi.defaultModel, apiKey: '' }
-  )
+  const [cfg, setCfg] = useState<LlmConfig>(initialConfig)
+  const [heartRateDraft, setHeartRateDraft] = useState<HeartRateDraft>(() => profileToDraft(loadCyclingHeartRateProfile()))
   const [bg, setBg] = useState<HomeBackground>(homeBackground)
   const [show, setShow] = useState(false)
   const [status, setStatus] = useState<string>('')
+  const hrmaxInputRef = useRef<HTMLInputElement>(null)
 
-  const setProvider = (p: LlmProvider) => setCfg({ ...cfg, provider: p, model: llmProviderMeta[p].defaultModel })
+  useEffect(() => {
+    if (openHeartRateRequest <= 0) return
+    setOpen(true)
+    window.setTimeout(() => hrmaxInputRef.current?.focus(), 0)
+  }, [openHeartRateRequest])
+
+  const parsedHeartRate = useMemo(() => readHeartRateDraft(heartRateDraft), [heartRateDraft])
+  const estimatedHrmax = estimateHrmaxFromAge(parsedHeartRate.profile?.age)
+  const activeReference = parsedHeartRate.profile
+    ? resolveCyclingHeartRateReference(parsedHeartRate.profile)
+    : undefined
+  const ratioWarning = parsedHeartRate.profile
+    ? cyclingHeartRateRatioWarning(parsedHeartRate.profile)
+    : undefined
+  const models = llmProviderMeta[cfg.provider].models.includes(cfg.model)
+    ? llmProviderMeta[cfg.provider].models
+    : [cfg.model, ...llmProviderMeta[cfg.provider].models]
+
+  const setProvider = (provider: LlmProvider) => {
+    setCfg(loadConfigForProvider(provider))
+    setStatus('')
+  }
+
+  const updateHeartRateDraft = (key: keyof HeartRateDraft, value: string) => {
+    setHeartRateDraft(current => ({ ...current, [key]: value }))
+    setStatus('')
+  }
 
   const onTest = async () => {
+    if (!cfg.apiKey.trim()) {
+      setStatus('请先输入 API Key。')
+      return
+    }
     setStatus('测试中…')
-    const r = await testApiKey(cfg)
-    setStatus(r.ok ? '✓ key 有效' : `✗ 无效：${r.error}`)
+    const result = await testApiKey(cfg)
+    setStatus(result.ok ? 'API Key 有效' : `测试失败：${result.error}`)
   }
+
   const onSave = () => {
-    saveConfig(cfg)
+    const parsed = readHeartRateDraft(heartRateDraft)
+    if (!parsed.profile) {
+      setStatus(parsed.error ?? '心率设置无效。')
+      return
+    }
+    const savedHeartRate = saveCyclingHeartRateProfile(parsed.profile)
+    const savedConfig = saveConfig(cfg)
     saveHomeBackground(bg)
-    onSaved(cfg)
+    if (savedConfig) onSaved(savedConfig)
+    onHeartRateSaved(savedHeartRate)
     onHomeBackgroundChange(bg)
-    setStatus('已保存')
-    setOpen(false)
+    setHeartRateDraft(profileToDraft(savedHeartRate))
+    setStatus('已保存到当前浏览器')
   }
 
   return (
     <>
-      <button className="gear-btn" title="设置" onClick={() => setOpen(v => !v)}>⚙</button>
+      <button className="gear-btn" title="设置" aria-label="设置" aria-expanded={open} onClick={() => setOpen(value => !value)}>⚙</button>
       {open && (
         <div className="gear-panel">
-          <label>模型平台</label>
-          <select value={cfg.provider} onChange={e => setProvider(e.target.value as LlmProvider)}>
-            <option value="kimi">Kimi</option>
-            <option value="deepseek">DeepSeek</option>
-          </select>
-          <label>Model</label>
-          <input value={cfg.model} onChange={e => setCfg({ ...cfg, model: e.target.value })} />
-          <label>API Key</label>
-          <div className="key-row">
-            <input type={show ? 'text' : 'password'} value={cfg.apiKey} onChange={e => setCfg({ ...cfg, apiKey: e.target.value })} />
-            <button onClick={() => setShow(v => !v)}>{show ? '隐藏' : '显示'}</button>
-          </div>
-          <label>首页背景</label>
-          <select value={bg} onChange={e => { const value = e.target.value as HomeBackground; setBg(value); onHomeBackgroundChange(value) }}>
-            <option value="contour">等高线地图</option>
-            <option value="dither">Dither 点阵</option>
-          </select>
+          <section className="settings-section" aria-labelledby="llm-settings-title">
+            <h2 id="llm-settings-title">AI 模型</h2>
+            <label htmlFor="llm-provider">模型平台</label>
+            <select id="llm-provider" value={cfg.provider} onChange={event => setProvider(event.target.value as LlmProvider)}>
+              {llmProviders.map(provider => (
+                <option key={provider} value={provider}>{llmProviderMeta[provider].label}</option>
+              ))}
+            </select>
+            <label htmlFor="llm-model">模型</label>
+            <select id="llm-model" value={cfg.model} onChange={event => setCfg({ ...cfg, model: event.target.value })}>
+              {models.map(model => <option key={model} value={model}>{model}</option>)}
+            </select>
+            <label htmlFor="llm-api-key">API Key</label>
+            <div className="key-row">
+              <input
+                id="llm-api-key"
+                type={show ? 'text' : 'password'}
+                autoComplete="off"
+                value={cfg.apiKey}
+                onChange={event => setCfg({ ...cfg, apiKey: event.target.value })}
+              />
+              <button type="button" onClick={() => setShow(value => !value)}>{show ? '隐藏' : '显示'}</button>
+            </div>
+          </section>
+
+          <section className="settings-section heart-rate-settings" aria-labelledby="heart-rate-settings-title">
+            <h2 id="heart-rate-settings-title">骑行心率分区</h2>
+            <div className="settings-input-grid">
+              <div>
+                <label htmlFor="cycling-hrmax">最大心率 HRmax</label>
+                <input
+                  ref={hrmaxInputRef}
+                  id="cycling-hrmax"
+                  inputMode="numeric"
+                  placeholder="例如 188"
+                  value={heartRateDraft.hrmax}
+                  onChange={event => updateHeartRateDraft('hrmax', event.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="cycling-age">不知道 HRmax？填年龄</label>
+                <input
+                  id="cycling-age"
+                  inputMode="numeric"
+                  placeholder="18～80"
+                  value={heartRateDraft.age}
+                  onChange={event => updateHeartRateDraft('age', event.target.value)}
+                />
+              </div>
+            </div>
+            <label htmlFor="cycling-lthr">骑行阈值心率 LTHR</label>
+            <input
+              id="cycling-lthr"
+              inputMode="numeric"
+              placeholder="例如 168"
+              value={heartRateDraft.lthr}
+              onChange={event => updateHeartRateDraft('lthr', event.target.value)}
+            />
+            {parsedHeartRate.error && <div className="settings-note warning">{parsedHeartRate.error}</div>}
+            {!heartRateDraft.hrmax && estimatedHrmax !== undefined && (
+              <div className="settings-note">年龄估算 HRmax：{estimatedHrmax} bpm · 临时区间</div>
+            )}
+            {activeReference && (
+              <div className="settings-note active">当前采用：{activeReference.base} {activeReference.value} bpm</div>
+            )}
+            {ratioWarning && <div className="settings-note warning">{ratioWarning}</div>}
+          </section>
+
+          <section className="settings-section" aria-labelledby="display-settings-title">
+            <h2 id="display-settings-title">显示</h2>
+            <label htmlFor="home-background">首页背景</label>
+            <select id="home-background" value={bg} onChange={event => {
+              const value = event.target.value as HomeBackground
+              setBg(value)
+              onHomeBackgroundChange(value)
+            }}>
+              <option value="contour">等高线地图</option>
+              <option value="dither">Dither 点阵</option>
+            </select>
+          </section>
+
           <div className="gear-actions">
-            <button onClick={onTest}>测试</button>
-            <button className="primary" onClick={onSave}>保存</button>
+            <button type="button" onClick={onTest}>测试 API</button>
+            <button type="button" className="primary" onClick={onSave}>保存</button>
           </div>
-          {status && <div className="gear-status">{status}</div>}
+          {status && <div className="gear-status" role="status">{status}</div>}
         </div>
       )}
     </>

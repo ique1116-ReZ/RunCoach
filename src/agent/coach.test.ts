@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { runAgent, COACH_SYSTEM_PROMPT, CYCLING_HEART_RATE_REFERENCE_QUESTION } from './coach'
+import { runAgent, COACH_SYSTEM_PROMPT, CYCLING_HEART_RATE_SETTINGS_GUIDANCE } from './coach'
 
 describe('runAgent', () => {
   it('系统提示词支持跑步和骑行复盘且拒绝无关请求', () => {
@@ -20,9 +20,10 @@ describe('runAgent', () => {
     expect(COACH_SYSTEM_PROMPT).toContain('trainingStimulus')
     expect(COACH_SYSTEM_PROMPT).toMatch(/evidence.*不单独复述/)
     expect(COACH_SYSTEM_PROMPT).toContain('flowSegment')
-    expect(COACH_SYSTEM_PROMPT).toContain('set_cycling_heart_rate_reference')
-    expect(COACH_SYSTEM_PROMPT).toMatch(/referenceRequired=true.*只追问/)
-    expect(COACH_SYSTEM_PROMPT).toMatch(/禁止用本次骑行最高心率.*不要改问年龄/)
+    expect(COACH_SYSTEM_PROMPT).toMatch(/referenceRequired=true.*只提示/)
+    expect(COACH_SYSTEM_PROMPT).toMatch(/不要在对话里追问数值/)
+    expect(COACH_SYSTEM_PROMPT).toMatch(/LTHR、手填 HRmax、基于年龄估算/)
+    expect(COACH_SYSTEM_PROMPT).toMatch(/禁止用本次骑行最高心率.*不要自行估算/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/<73%.*73–<81%.*≥90%/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/<81%.*81–<90%.*≥100%/)
     expect(COACH_SYSTEM_PROMPT).toMatch(/没有可靠功率.*冲刺能力.*整行省略/)
@@ -40,7 +41,7 @@ describe('runAgent', () => {
     expect(COACH_SYSTEM_PROMPT).toMatch(/取消/)
   })
 
-  it('骑行缺少 HRmax/LTHR 时由 Agent 门禁直接追问并停止本轮复盘', async () => {
+  it('骑行缺少 HRmax/LTHR 时由 Agent 门禁引导设置并停止本轮复盘', async () => {
     const complete = vi.fn().mockResolvedValue({ message: { role: 'assistant', content: '', tool_calls: [
       { id: 'hr1', type: 'function', function: { name: 'analyze_run', arguments: '{"run_id":"ride-1"}' } }
     ] } })
@@ -54,7 +55,7 @@ describe('runAgent', () => {
       { complete: complete as any, executeTool: executeTool as any }
     )
     expect(complete).toHaveBeenCalledOnce()
-    expect(out.at(-1)?.content).toBe(CYCLING_HEART_RATE_REFERENCE_QUESTION)
+    expect(out.at(-1)?.content).toBe(CYCLING_HEART_RATE_SETTINGS_GUIDANCE)
     expect(out.at(-1)?.content).not.toMatch(/能力|分区结果/)
   })
 

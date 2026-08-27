@@ -22,7 +22,13 @@ import { PinConfirm } from './PinConfirm'
 import { ReplayBar } from './ReplayBar'
 import { ActivityDashboard } from './ActivityDashboard'
 import { DitherMapBackdrop } from './DitherMapBackdrop'
-import { loadHomeBackground, type HomeBackground } from './preferences'
+import {
+  loadCyclingHeartRateProfile,
+  loadHomeBackground,
+  resolveCyclingHeartRateReference,
+  type CyclingHeartRateProfile,
+  type HomeBackground
+} from './preferences'
 import { APP_NAME, APP_SLUG } from './brand'
 import './styles.css'
 
@@ -76,6 +82,8 @@ export default function App() {
   const [dashboardOpen, setDashboardOpen] = useState(false)
   const [pendingReview, setPendingReview] = useState<PendingReview | null>(null)
   const [config, setConfig] = useState<LlmConfig | null>(loadConfig())
+  const [heartRateProfile, setHeartRateProfile] = useState<CyclingHeartRateProfile>(loadCyclingHeartRateProfile())
+  const [openHeartRateSettingsRequest, setOpenHeartRateSettingsRequest] = useState(0)
   const [homeBackground, setHomeBackground] = useState<HomeBackground>(loadHomeBackground())
   const runs = useRef<Map<string, Run>>(new Map())
 
@@ -169,6 +177,7 @@ export default function App() {
   const ctx: ToolContext = useMemo(() => ({
     runs: runs.current,
     onRunUpdated: (updatedRun: Run) => setRun(updatedRun),
+    requestHeartRateSettings: () => setOpenHeartRateSettingsRequest(value => value + 1),
     onRoute: (r: RouteResult) => {
       routesRef.current = [...routesRef.current, r]
       setRoutes(routesRef.current)
@@ -186,7 +195,7 @@ export default function App() {
     paintRoute(routes[i])
   }
 
-  const { turns, busy, send } = useChatAgent({ config, ctx })
+  const { turns, busy, send, pushAssistant } = useChatAgent({ config, ctx })
   // 卡片/选点活跃时是“等用户操作”，不算 AI 在思考；只有真正等模型时才显示输入动画
   const cardActive = !!(terrainResolve || startResolve || picking)
 
@@ -203,9 +212,15 @@ export default function App() {
   const onUpload = async (file: File) => {
     if (!docked) setDocked(true)
     const text = file.name.endsWith('.fit') ? '' : await file.text()
-    const parsed: Run = file.name.endsWith('.fit')
+    const imported: Run = file.name.endsWith('.fit')
       ? await parseFitFile(await file.arrayBuffer(), file.name)
       : file.name.endsWith('.json') ? await parseJsonFile(text, file.name) : parseGpxFile(text, file.name)
+    const parsed: Run = imported.activityType === 'cycling'
+      ? {
+          ...imported,
+          heartRateReference: resolveCyclingHeartRateReference(heartRateProfile, imported.heartRateReference)
+        }
+      : imported
     runs.current.set(parsed.id, parsed)
     setRun(parsed)
     setDashboardOpen(false)
@@ -224,9 +239,27 @@ export default function App() {
   const reviewUploadedRun = () => {
     if (!pendingReview) return
     const review = pendingReview
+    const storedRun = runs.current.get(review.runId)
+    if (!storedRun) {
+      setPendingReview(null)
+      pushAssistant('没有找到刚才导入的训练，请重新上传文件。')
+      return
+    }
+    let uploadedRun = storedRun
+    if (review.activityType === 'cycling' && !uploadedRun.heartRateReference) {
+      const reference = resolveCyclingHeartRateReference(heartRateProfile)
+      if (!reference) {
+        setOpenHeartRateSettingsRequest(value => value + 1)
+        pushAssistant('请先在右上角设置中填写骑行最大心率、骑行阈值心率，或年龄。保存后再开始 AI 复盘。')
+        return
+      }
+      uploadedRun = { ...uploadedRun, heartRateReference: reference }
+      runs.current.set(uploadedRun.id, uploadedRun)
+      setRun(uploadedRun)
+    }
     setPendingReview(null)
     const request = review.activityType === 'cycling'
-      ? `[上传骑行训练] ${review.fileName}，请复盘。心率强度区间只给 Z1-Z5 占比图表；再判断本次训练对续航、爬坡、冲刺的刺激，没有可靠功率时不显示冲刺。能力后直接给下一次训练建议。如果没有用户确认的 HRmax 或 LTHR，先向我追问其中一个，不要猜测。`
+      ? `[上传骑行训练] ${review.fileName}，请复盘。心率强度区间只给 Z1-Z5 占比图表；再判断本次训练对续航、爬坡、冲刺的刺激，没有可靠功率时不显示冲刺。能力后直接给下一次训练建议。`
       : `[上传${review.activityLabel}训练] ${review.fileName}，请复盘`
     void send(
       request,
@@ -279,7 +312,13 @@ export default function App() {
       )}
 
       <div className="top-right">
-        <SettingsGear onSaved={setConfig} homeBackground={homeBackground} onHomeBackgroundChange={setHomeBackground} />
+        <SettingsGear
+          onSaved={setConfig}
+          onHeartRateSaved={setHeartRateProfile}
+          homeBackground={homeBackground}
+          onHomeBackgroundChange={setHomeBackground}
+          openHeartRateRequest={openHeartRateSettingsRequest}
+        />
       </div>
 
       {mapReady && (

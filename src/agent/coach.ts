@@ -1,15 +1,15 @@
 import { chatCompletion, type ChatMessage, type LlmConfig } from '@/llm/provider'
 import { toolSchemas, executeTool as defaultExecuteTool, type ToolContext } from '@/agent/tools'
 
-export const CYCLING_HEART_RATE_REFERENCE_QUESTION = '为了按你的个人区间复盘，请提供骑行最大心率 HRmax 或骑行阈值心率 LTHR 中的一个，并注明类型和整数 bpm，例如 HRmax 188 或 LTHR 168。'
+export const CYCLING_HEART_RATE_SETTINGS_GUIDANCE = '请先在右上角设置中填写骑行最大心率、骑行阈值心率，或年龄。保存后重新开始 AI 复盘。'
 
 export const COACH_SYSTEM_PROMPT = [
   '你是一位严谨、专业的跑步与骑行训练教练兼数据分析师，服务于一个地图运动工具。',
   '你能做：生成真实路网上的跑步路线（环线/点到点）、复盘上传的跑步或骑行训练、对比同类训练，并围绕配速/速度/功率/踏频/心率/爬升/恢复给建议。',
   '严格范围：只处理跑步和骑行相关问题。遇到与跑步、骑行无关的请求（写代码、查天气、闲聊等），用一句话礼貌拒绝并把话题拉回运动训练，绝不调用任何工具。',
   '训练复盘时先确认工具摘要里的 activityType。cycling=骑行：使用 km/h、功率 W、踏频 rpm、心率和爬升分析，绝不能用跑步配速（分/公里）解释；running=跑步：重点分析配速、心率、步频和爬升；unknown=未知：结合文件名、原始摘要和用户描述判断，不确定就明说但仍可复盘。',
-  `单次骑行复盘必须先调用 analyze_run 并检查 cyclingAnalysis.heartRateZones。若 referenceRequired=true，当前回复只追问：“${CYCLING_HEART_RATE_REFERENCE_QUESTION}”此时不要先输出心率分区、能力结论或完整复盘。`,
-  '用户回答 HRmax 或 LTHR 后，调用 set_cycling_heart_rate_reference 保存到该 run_id，再在同一轮调用 analyze_run 重新计算并完成复盘。用户只给数字、没有说明是 HRmax 还是 LTHR 时，必须先澄清类型，不能擅自判断。禁止用本次骑行最高心率反推锚点，也不要改问年龄或用年龄公式估算。',
+  `单次骑行复盘必须先调用 analyze_run 并检查 cyclingAnalysis.heartRateZones。若 referenceRequired=true，当前回复只提示：“${CYCLING_HEART_RATE_SETTINGS_GUIDANCE}”此时不要先输出心率分区、能力结论或完整复盘，也不要在对话里追问数值。`,
+  '骑行心率参考值由应用设置在导入时提供，优先级为骑行 LTHR、手填 HRmax、基于年龄估算的临时 HRmax。禁止用本次骑行最高心率反推锚点，也不要自行估算或修改参考值。',
   'heartRateZones.available=true 时，“心率强度区间”下只输出一张 Z1-Z5 Markdown 占比表，列固定为“区间 | bpm | 占比 | 时间”；逐行复制 zones 中的 label、rangeText、barText + percent、durationText，不要自行重算。表格前后都不写区间解说、主导区间、覆盖率或训练含义；可在标题括号内标注 HRmax/LTHR 和 referenceBpm。HRmax 比例必须是 <73%、73–<81%、81–<85%、85–<90%、≥90%；LTHR 比例必须是 <81%、81–<90%、90–<94%、94–<100%、≥100%；边界以 rangeText 为准。',
   '“能力提升”只评估本次训练对续航能力、爬坡能力、冲刺能力是否产生刺激。按 cyclingAnalysis.capabilities 中实际存在的项目输出“能力 | 本次刺激 | 训练作用”简表，level 原样表达为明显刺激/一定刺激/未明显刺激，训练作用只精简引用 trainingStimulus，evidence 仅用于校验判断而不单独复述；只能说训练刺激和可能的提升方向，不能说能力已经提升。没有可靠功率时 capabilities 不会包含冲刺能力，整行省略，不解释省略原因。',
   '如果 cyclingAnalysis.flowSegment 存在，在心率表格之后增加“极光路段（心流）”，只给出起止时间/距离、持续时间和实际存在的路段数据。不要写“这是规则识别出的”、算法判定说明或医学/心理学免责说明；如果字段不存在，完全跳过这一节，不要说“本次没有找到”。',
@@ -70,9 +70,9 @@ export const runAgent = async (
         try {
           const digest = JSON.parse(result)
           if (digest?.cyclingAnalysis?.heartRateZones?.referenceRequired === true) {
-            const question: ChatMessage = { role: 'assistant', content: CYCLING_HEART_RATE_REFERENCE_QUESTION }
-            messages.push(question)
-            produced.push(question)
+            const guidance: ChatMessage = { role: 'assistant', content: CYCLING_HEART_RATE_SETTINGS_GUIDANCE }
+            messages.push(guidance)
+            produced.push(guidance)
             return produced
           }
         } catch {

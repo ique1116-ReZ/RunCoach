@@ -7,6 +7,7 @@ export type ToolContext = {
   runs: Map<string, Run>
   onRoute: (r: RouteResult) => void
   onRunUpdated?: (run: Run) => void
+  requestHeartRateSettings?: () => void
   requestTerrain: () => Promise<'trail' | 'road' | null>
   requestStartPoint: () => Promise<LngLat | null>
   // 测试注入用，可选：
@@ -69,22 +70,6 @@ export const toolSchemas = [
         type: 'object',
         properties: { run_id: { type: 'string' } },
         required: ['run_id']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'set_cycling_heart_rate_reference',
-      description: '保存用户为当前骑行明确提供的骑行最大心率 HRmax 或骑行阈值心率 LTHR。只能在用户注明类型和 bpm 后调用；保存成功后再次调用 analyze_run。',
-      parameters: {
-        type: 'object',
-        properties: {
-          run_id: { type: 'string', description: '当前上传骑行的 run_id' },
-          base: { type: 'string', enum: ['HRmax', 'LTHR'], description: '用户明确提供的参考值类型' },
-          bpm: { type: 'number', description: '用户提供的整数 bpm，范围 30～230' }
-        },
-        required: ['run_id', 'base', 'bpm']
       }
     }
   },
@@ -200,40 +185,20 @@ export const executeTool = async (name: string, args: any, ctx: ToolContext): Pr
       if (!run) return fail('找不到该训练，请确认已上传')
       const digest = buildRunDigest(run)
       if (digest.cyclingAnalysis?.heartRateZones.referenceRequired) {
+        ctx.requestHeartRateSettings?.()
         return ok({
           fileName: digest.fileName,
           name: digest.name,
           activityType: digest.activityType,
           cyclingAnalysis: { heartRateZones: digest.cyclingAnalysis.heartRateZones },
           requiredAction: {
-            accepted: ['HRmax', 'LTHR'],
-            input: '一种类型和一个 30～230 之间的整数 bpm',
-            toolAfterUserReply: 'set_cycling_heart_rate_reference',
+            action: 'open_cycling_heart_rate_settings',
+            accepted: ['LTHR', 'HRmax', 'age'],
             reviewBlockedUntilReference: true
           }
         })
       }
       return ok(digest)
-    }
-    if (name === 'set_cycling_heart_rate_reference') {
-      const run = ctx.runs.get(args.run_id)
-      if (!run) return fail('找不到该训练，请确认已上传')
-      if (run.activityType !== 'cycling') return fail('心率参考值只能用于当前骑行训练')
-      if (args.base !== 'HRmax' && args.base !== 'LTHR') return fail('请明确选择 HRmax 或 LTHR')
-      const bpm = Number(args.bpm)
-      if (!Number.isInteger(bpm) || bpm < 30 || bpm > 230) return fail('请输入 30～230 bpm 之间的整数')
-      const updatedRun: Run = {
-        ...run,
-        heartRateReference: { base: args.base, value: bpm, source: '用户填写' }
-      }
-      ctx.runs.set(run.id, updatedRun)
-      ctx.onRunUpdated?.(updatedRun)
-      return ok({
-        saved: true,
-        run_id: run.id,
-        reference: updatedRun.heartRateReference,
-        next: '立即调用 analyze_run，使用新参考值完成本次骑行复盘'
-      })
     }
     if (name === 'compare_runs') {
       const a = ctx.runs.get(args.run_id_a)
