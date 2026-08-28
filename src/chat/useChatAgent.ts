@@ -29,7 +29,7 @@ export const useChatAgent = ({ config, ctx, coachMode }: {
       const finalText = [...produced].reverse().find(m => m.role === 'assistant' && m.content)?.content
       if (finalText) pushAssistant(finalText)
     } catch (e: any) {
-      pushAssistant(`出错了：${String(e?.message ?? e)}。可稍后重试或检查 key。`)
+      pushAssistant(`出错了：${String(e?.message ?? e)}`)
     } finally {
       setBusy(false)
     }

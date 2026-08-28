@@ -48,7 +48,9 @@ VITE_ORS_KEY=你的 OpenRouteService key
 - `VITE_MAPTILER_KEY`：地图底图与地名搜索。
 - `VITE_ORS_KEY`：真实路网路线生成。
 
-LLM API Key 不写入 `.env.local`。打开页面后点击右上角齿轮，可选择 Kimi、DeepSeek、OpenAI、Google Gemini 或通义千问 Qwen，选择模型、填写对应平台的 API Key，并点击“测试 API”确认可用。每个平台的模型和 Key 分开保存在当前浏览器，切换回来时会恢复上次保存的配置。
+LLM API Key 不写入 `.env.local`。打开页面后点击右上角齿轮，可选择 Kimi、DeepSeek、OpenAI、Google Gemini 或通义千问 Qwen，选择模型、填写对应平台的 API Key，并点击“测试 API”确认可用。每个平台的模型和 Key 分开保存在当前浏览器，切换回来时会恢复上次保存的配置。模型输入框会提供当前推荐项，也允许直接填写平台控制台中的模型 ID，避免硬编码列表过期。
+
+Kimi 默认使用 `kimi-k2.6`；浏览器中旧的 `kimi-k2.5` 配置会自动迁移，`kimi-k3` 需在 Kimi 开放平台完成充值后才能调用。Qwen 的中国大陆版、国际版新加坡和国际版美国 API Key 对应不同接口，设置时必须选择 Key 所属地域。OpenAI 与 Google Gemini 需要当前网络可直连各自官方 API；在中国大陆网络中发生连接超时不代表 API Key 错误。
 
 ## GitHub Pages
 
@@ -141,8 +143,8 @@ npm run build
 
 当前验证结果：
 
-- 12 个测试文件通过。
-- 63 个测试通过。
+- 13 个测试文件通过。
+- 78 个测试通过。
 - 生产构建通过。
 
 构建时可能出现 chunk size warning，主要来自地图和解析库体积，对应用主流程不构成功能阻塞。

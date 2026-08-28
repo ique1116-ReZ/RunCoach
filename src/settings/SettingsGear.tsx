@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   type LlmConfig,
   type LlmProvider,
+  type QwenRegion,
   llmProviderMeta,
   llmProviders,
   loadConfig,
   loadConfigForProvider,
+  qwenRegionMeta,
   saveConfig,
   testApiKey
 } from '@/llm/provider'
@@ -98,12 +100,16 @@ export const SettingsGear = ({
   const ratioWarning = parsedHeartRate.profile
     ? cyclingHeartRateRatioWarning(parsedHeartRate.profile)
     : undefined
-  const models = llmProviderMeta[cfg.provider].models.includes(cfg.model)
-    ? llmProviderMeta[cfg.provider].models
-    : [cfg.model, ...llmProviderMeta[cfg.provider].models]
+  const providerMeta = llmProviderMeta[cfg.provider]
+  const modelNote = providerMeta.modelNotes?.[cfg.model]
 
   const setProvider = (provider: LlmProvider) => {
     setCfg(loadConfigForProvider(provider))
+    setStatus('')
+  }
+
+  const updateConfig = (next: LlmConfig) => {
+    setCfg(next)
     setStatus('')
   }
 
@@ -135,9 +141,13 @@ export const SettingsGear = ({
       setStatus('请先输入 API Key。')
       return
     }
+    if (!cfg.model.trim()) {
+      setStatus('请先输入模型 ID。')
+      return
+    }
     setStatus('测试中…')
     const result = await testApiKey(cfg)
-    setStatus(result.ok ? 'API Key 有效' : `测试失败：${result.error}`)
+    setStatus(result.ok ? 'API Key、模型与接口均可用' : `测试失败：${result.error}`)
   }
 
   const onSave = () => {
@@ -150,7 +160,10 @@ export const SettingsGear = ({
     const savedMode = saveCoachMode(mode)
     const savedConfig = saveConfig(cfg)
     saveHomeBackground(bg)
-    if (savedConfig) onSaved(savedConfig)
+    if (savedConfig) {
+      setCfg(savedConfig)
+      onSaved(savedConfig)
+    }
     onHeartRateSaved(savedHeartRate)
     onCoachModeChange(savedMode)
     onHomeBackgroundChange(bg)
@@ -197,10 +210,33 @@ export const SettingsGear = ({
                 <option key={provider} value={provider}>{llmProviderMeta[provider].label}</option>
               ))}
             </select>
+            {cfg.provider === 'qwen' && (
+              <>
+                <label htmlFor="qwen-region">接口地域</label>
+                <select
+                  id="qwen-region"
+                  value={cfg.qwenRegion ?? 'cn'}
+                  onChange={event => updateConfig({ ...cfg, qwenRegion: event.target.value as QwenRegion })}
+                >
+                  {(Object.entries(qwenRegionMeta) as [QwenRegion, (typeof qwenRegionMeta)[QwenRegion]][]).map(([region, meta]) => (
+                    <option key={region} value={region}>{meta.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
             <label htmlFor="llm-model">模型</label>
-            <select id="llm-model" value={cfg.model} onChange={event => setCfg({ ...cfg, model: event.target.value })}>
-              {models.map(model => <option key={model} value={model}>{model}</option>)}
-            </select>
+            <input
+              id="llm-model"
+              list="llm-model-options"
+              value={cfg.model}
+              onChange={event => updateConfig({ ...cfg, model: event.target.value })}
+              placeholder="输入平台模型 ID"
+              autoComplete="off"
+            />
+            <datalist id="llm-model-options">
+              {providerMeta.models.map(model => <option key={model} value={model} />)}
+            </datalist>
+            {modelNote && <div className="settings-note warning">{modelNote}</div>}
             <label htmlFor="llm-api-key">API Key</label>
             <div className="key-row">
               <input
@@ -208,10 +244,12 @@ export const SettingsGear = ({
                 type={show ? 'text' : 'password'}
                 autoComplete="off"
                 value={cfg.apiKey}
-                onChange={event => setCfg({ ...cfg, apiKey: event.target.value })}
+                onChange={event => updateConfig({ ...cfg, apiKey: event.target.value })}
               />
               <button type="button" onClick={() => setShow(value => !value)}>{show ? '隐藏' : '显示'}</button>
             </div>
+            {providerMeta.connectionNote && <div className="settings-note warning">{providerMeta.connectionNote}</div>}
+            <div className="settings-note">Key 只保存在当前浏览器，并直接发送到所选模型平台。公共电脑请勿保存长期 Key。</div>
           </section>
 
           <section className="settings-section heart-rate-settings" aria-labelledby="heart-rate-settings-title">

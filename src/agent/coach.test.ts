@@ -99,6 +99,30 @@ describe('runAgent', () => {
     expect(out.at(-1)!.content).toContain('已定位')
   })
 
+  it('多步工具调用会原样回传模型的 reasoning_content', async () => {
+    const complete = vi.fn()
+      .mockResolvedValueOnce({ message: {
+        role: 'assistant',
+        content: '',
+        reasoning_content: '先读取训练摘要。',
+        tool_calls: [{ id: 'c1', type: 'function', function: { name: 'analyze_run', arguments: '{"run_id":"ride-1"}' } }]
+      } })
+      .mockResolvedValueOnce({ message: { role: 'assistant', content: '分析完成。' } })
+
+    await runAgent(
+      { provider: 'kimi', model: 'kimi-k3', apiKey: 'k' },
+      [{ role: 'user', content: '复盘这次骑行' }],
+      { runs: new Map(), onRoute: vi.fn() } as any,
+      { complete: complete as any, executeTool: async () => '{"activityType":"cycling"}' } as any
+    )
+
+    const secondRoundMessages = complete.mock.calls[1][1]
+    expect(secondRoundMessages).toContainEqual(expect.objectContaining({
+      role: 'assistant',
+      reasoning_content: '先读取训练摘要。'
+    }))
+  })
+
   it('健康陪练模式把对应系统提示词发给模型', async () => {
     const complete = vi.fn().mockResolvedValue({ message: { role: 'assistant', content: '今天骑得很稳。' } })
     await runAgent(

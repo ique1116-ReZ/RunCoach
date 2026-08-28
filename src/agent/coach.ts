@@ -85,6 +85,7 @@ export const runAgent = async (
     const assistant: ChatMessage = {
       role: 'assistant',
       content: message?.content ?? '',
+      ...(message?.reasoning_content ? { reasoning_content: message.reasoning_content } : {}),
       ...(message?.tool_calls ? { tool_calls: message.tool_calls } : {})
     }
     messages.push(assistant)
