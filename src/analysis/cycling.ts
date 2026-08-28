@@ -277,8 +277,9 @@ const buildFlowCandidate = (run: Run, items: TimedPoint[], startIndex: number, e
   const endPoint = items[endIndex + 1]?.point ?? window[window.length - 1].point
   const startDistanceKm = startPoint.distFromStart / 1000
   const endDistanceKm = endPoint.distFromStart / 1000
-  const firstTimeline = run.points[0]?.timerTime ?? run.points[0]?.time ?? startPoint.time
-  const startTimeline = startPoint.timerTime ?? startPoint.time
+  const useTimerTimeline = run.points.every(point => point.timerTime !== undefined && Number.isFinite(point.timerTime))
+  const firstTimeline = useTimerTimeline ? run.points[0]?.timerTime ?? startPoint.time : run.points[0]?.time ?? startPoint.time
+  const startTimeline = useTimerTimeline ? startPoint.timerTime ?? startPoint.time : startPoint.time
   const startOffsetSeconds = Math.max(0, (startTimeline - firstTimeline) / 1000)
   const endOffsetSeconds = startOffsetSeconds + durationSeconds
   const evidence = [
