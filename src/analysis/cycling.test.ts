@@ -85,6 +85,16 @@ describe('buildCyclingAnalysis', () => {
     expect(analysis.capabilities.find(capability => capability.name === '续航能力')?.evidence.join('')).toContain('1.5 分钟')
   })
 
+  it('计时字段不完整时整段回退时间戳，避免混用两个时间轴', () => {
+    const partiallyTimedRide: Run = {
+      ...ride,
+      points: ride.points.map((point, index) => index === 2 ? point : { ...point, timerTime: index * 30000 }),
+      totalTime: 90000
+    }
+    const analysis = buildCyclingAnalysis(partiallyTimedRide)
+    expect(analysis.heartRateZones.zones.reduce((sum, zone) => sum + zone.seconds, 0)).toBe(90)
+  })
+
   it('无功率或功率覆盖不足 80% 时完全省略冲刺能力', () => {
     const withoutPower = buildCyclingAnalysis({
       ...ride,

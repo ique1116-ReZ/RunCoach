@@ -40,7 +40,8 @@ const formatElevation = (elevation?: number) => {
 const timeAtDistance = (run: Run, distance: number) => {
   const points = run.points
   if (points.length === 0) return 0
-  const timelineTime = (index: number) => points[index].timerTime ?? points[index].time
+  const useTimerTimeline = points.every(point => point.timerTime !== undefined && Number.isFinite(point.timerTime))
+  const timelineTime = (index: number) => useTimerTimeline ? points[index].timerTime as number : points[index].time
   if (distance <= 0) return timelineTime(0)
   if (distance >= run.totalDistance) return timelineTime(points.length - 1)
 
@@ -137,8 +138,9 @@ export const ReplayBar = ({ run, map, onOpenDashboard }: { run: Run; map: maplib
       setPct(current => {
         const currentDistance = current * run.totalDistance
         const nextTime = timeAtDistance(run, currentDistance) + elapsed * playbackSpeed
+        const useTimerTimeline = run.points.every(point => point.timerTime !== undefined && Number.isFinite(point.timerTime))
         const lastPoint = run.points[run.points.length - 1]
-        const lastTime = lastPoint ? (lastPoint.timerTime ?? lastPoint.time) : 0
+        const lastTime = lastPoint ? (useTimerTimeline ? lastPoint.timerTime as number : lastPoint.time) : 0
         if (nextTime >= lastTime) {
           setPlaying(false)
           return 1

@@ -18,6 +18,8 @@ export type Sample = {
 export const sampleAtTime = (run: Run, timeMs: number): Sample | null => {
   const points = run.points
   if (points.length === 0) return null
+  const useTimerTimeline = points.every(point => point.timerTime !== undefined && Number.isFinite(point.timerTime))
+  const timelineTime = (point: TrackPoint) => useTimerTimeline ? point.timerTime as number : point.time
   const first = points[0]
   const last = points[points.length - 1]
   if (timeMs <= timelineTime(first)) return first

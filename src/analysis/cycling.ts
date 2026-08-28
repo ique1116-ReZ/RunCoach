@@ -106,18 +106,17 @@ const durationText = (seconds: number) => {
 
 const toTimedPoints = (run: Run): TimedPoint[] => {
   if (run.points.length === 0) return []
+  const useTimerTimeline = run.points.every(point => point.timerTime !== undefined && Number.isFinite(point.timerTime))
   const timed: TimedPoint[] = []
   for (let index = 0; index < run.points.length; index += 1) {
     const point = run.points[index]
     const next = run.points[index + 1]
-    const pointTimeline = point.timerTime ?? point.time
-    const nextTimeline = next?.timerTime ?? next?.time
+    const pointTimeline = useTimerTimeline ? point.timerTime as number : point.time
+    const nextTimeline = next ? (useTimerTimeline ? next.timerTime as number : next.time) : undefined
     const rawDelta = nextTimeline !== undefined && Number.isFinite(nextTimeline - pointTimeline) && nextTimeline > pointTimeline
       ? (nextTimeline - pointTimeline) / 1000
       : 0
-    const delta = point.timerTime !== undefined || next?.timerTime !== undefined
-      ? rawDelta
-      : Math.min(rawDelta, 120)
+    const delta = useTimerTimeline ? rawDelta : Math.min(rawDelta, 120)
     timed.push({ point, seconds: delta })
   }
   const measuredSeconds = timed.reduce((sum, item) => sum + item.seconds, 0)
