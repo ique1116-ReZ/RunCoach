@@ -49,6 +49,8 @@ export type TrackPoint = {
   lat: number
   lon: number
   time: number
+  /** Device timer time in milliseconds from the activity start (FIT only). */
+  timerTime?: number
   hr?: number
   speed?: number
   elevation?: number

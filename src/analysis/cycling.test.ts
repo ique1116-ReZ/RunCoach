@@ -69,6 +69,22 @@ describe('buildCyclingAnalysis', () => {
     expect(analysis).not.toHaveProperty('note')
   })
 
+  it('FIT timerTime 存在时按有效计时统计，暂停区间不进入心率时间', () => {
+    const pausedRide: Run = {
+      ...ride,
+      points: [
+        { ...ride.points[0], time: 1700000000000, timerTime: 0 },
+        { ...ride.points[1], time: 1700001800000, timerTime: 30000 },
+        { ...ride.points[2], time: 1700003600000, timerTime: 60000 },
+        { ...ride.points[3], time: 1700005400000, timerTime: 90000 }
+      ],
+      totalTime: 90000
+    }
+    const analysis = buildCyclingAnalysis(pausedRide)
+    expect(analysis.heartRateZones.zones.reduce((sum, zone) => sum + zone.seconds, 0)).toBe(90)
+    expect(analysis.capabilities.find(capability => capability.name === '续航能力')?.evidence.join('')).toContain('1.5 分钟')
+  })
+
   it('无功率或功率覆盖不足 80% 时完全省略冲刺能力', () => {
     const withoutPower = buildCyclingAnalysis({
       ...ride,

@@ -106,14 +106,14 @@ Virtual Coach 对应 Suunto 用户"运动前规划 → 运动中记录 → 运�
 |---|---|---|---|
 | 文件上传 | FIT / GPX / JSON | 选择后解析为 `Run`，进入回放态 | `runs/fit.ts`、`runs/gpx.ts`、`runs/json.ts` |
 | 地图轨迹 | 展示真实轨迹并自动 `fitBounds` 到视野 | 不在默认城市也能看到轨迹 | `map/layers.ts`(fitToCoords) |
-| 回放条 | 播放/暂停、拖动进度、按原始时间戳推进轨迹点，显示实时配速或速度/功率/踏频/心率/距离 | 点击播放后轨迹 marker 随时间移动；拖动后立即同步地图位置 | `app/ReplayBar.tsx` |
+| 回放条 | 播放/暂停、拖动进度、按 FIT 有效计时（其他格式按原始时间戳）推进轨迹点，显示实时配速或速度/功率/踏频/心率/距离 | 点击播放后轨迹 marker 随时间移动；FIT 暂停区间不额外消耗回放时间；拖动后立即同步地图位置 | `app/ReplayBar.tsx`、`runs/align.ts` |
 | 回放倍速 | 提供“真速”(1x)、2x、4x、8x；默认 8x | 真速按原始时间戳推进；最高只能选 8x | `app/ReplayBar.tsx` |
 | 海拔坡度图 | 回放条内显示海拔曲线，橙色=上坡、蓝色=平路、绿色=下坡；当前点随播放移动 | 用户能看出当下处于上坡/平路/下坡，并看到当前海拔 | `app/ReplayBar.tsx`、`app/styles.css` |
 | 复盘确认 | 上传后先出现“训练已导入”确认卡，不自动请求 AI | 用户只想看回放时不会触发复盘；点击“开始复盘”才调用 AI | `app/App.tsx`、`chat/ChatDock.tsx` |
 | 数据看板 | 导入训练后查看概览、趋势和关键指标 | 可按指标切换趋势图；本地导出 PNG 看板和 CSV 点位数据 | `app/ActivityDashboard.tsx`、`analysis/dashboard.ts` |
 | 数据摘要 | 距离、用时、配速、心率、功率、步频、高程、分段检查点；骑行增加 Z1-Z5 心率占比条、续航/爬坡/冲刺训练刺激和可选极光路段 | 心率区间只能使用明确的骑行 LTHR 或 HRmax（含年龄回填值）；不以单次最高心率兜底；冲刺只在功率覆盖达到 80% 时显示；极光路段至少连续 8 分钟且速度、心率稳定 | `analysis/digest.ts`、`analysis/cycling.ts` |
 | 心率设置门禁 | 骑行有逐点心率但没有可用参考值时，摘要返回 `referenceRequired=true` | 应用直接打开设置并暂停复盘；不让 LLM 猜测或在对话中追问；保存后再次点击即可复盘 | `agent/coach.ts`、`agent/tools.ts`、`app/App.tsx` |
-| AI 复盘 | 用户确认后发送“请复盘”，AI 据摘要和当前解读方式解读 | 两种方式均按“心率五区占比表 → 可选极光路段 → 能力 → 下一次训练建议”输出；健康陪练只改变五区、能力与建议的语言，不添加开场总评或能力汇总段落；两种方式都直接省略不存在的指标 | `app/App.tsx`、`agent/coach.ts`、`agent/tools.ts` |
+| AI 复盘 | 用户确认后发送“请复盘”，AI 据摘要和当前解读方式解读 | 两种方式均按“心率五区占比表 → 可选极光路段 → 能力 → 下一次训练建议”输出；健康陪练只改变五区、能力与建议的语言，不添加开场总评或能力汇总段落；FIT 有设备计时器时统一使用排除暂停的有效骑行时间，其他格式直接使用轨迹时长；两种方式都直接省略不存在的指标 | `app/App.tsx`、`agent/coach.ts`、`agent/tools.ts`、`runs/fit.ts`、`analysis/cycling.ts` |
 | A/B 对比 | 对比两份已上传训练 | 调用 `compare_runs`，输出差异解读 | `analysis/digest.ts` |
 
 ---

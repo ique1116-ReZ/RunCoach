@@ -110,9 +110,14 @@ const toTimedPoints = (run: Run): TimedPoint[] => {
   for (let index = 0; index < run.points.length; index += 1) {
     const point = run.points[index]
     const next = run.points[index + 1]
-    const delta = next && Number.isFinite(next.time - point.time) && next.time > point.time
-      ? Math.min((next.time - point.time) / 1000, 120)
+    const pointTimeline = point.timerTime ?? point.time
+    const nextTimeline = next?.timerTime ?? next?.time
+    const rawDelta = nextTimeline !== undefined && Number.isFinite(nextTimeline - pointTimeline) && nextTimeline > pointTimeline
+      ? (nextTimeline - pointTimeline) / 1000
       : 0
+    const delta = point.timerTime !== undefined || next?.timerTime !== undefined
+      ? rawDelta
+      : Math.min(rawDelta, 120)
     timed.push({ point, seconds: delta })
   }
   const measuredSeconds = timed.reduce((sum, item) => sum + item.seconds, 0)
@@ -273,7 +278,9 @@ const buildFlowCandidate = (run: Run, items: TimedPoint[], startIndex: number, e
   const endPoint = items[endIndex + 1]?.point ?? window[window.length - 1].point
   const startDistanceKm = startPoint.distFromStart / 1000
   const endDistanceKm = endPoint.distFromStart / 1000
-  const startOffsetSeconds = Math.max(0, (startPoint.time - (run.points[0]?.time ?? startPoint.time)) / 1000)
+  const firstTimeline = run.points[0]?.timerTime ?? run.points[0]?.time ?? startPoint.time
+  const startTimeline = startPoint.timerTime ?? startPoint.time
+  const startOffsetSeconds = Math.max(0, (startTimeline - firstTimeline) / 1000)
   const endOffsetSeconds = startOffsetSeconds + durationSeconds
   const evidence = [
     `连续 ${durationText(durationSeconds)}、约 ${(endDistanceKm - startDistanceKm).toFixed(2)} km 无明显中断`,

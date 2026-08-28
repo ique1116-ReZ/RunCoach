@@ -87,6 +87,37 @@ const firstRecord = (value: unknown): Record<string, unknown> => {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {}
 }
 
+const finiteNonNegative = (value: unknown) => {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : undefined
+}
+
+/**
+ * FIT exposes both elapsed time (includes pauses) and timer time (device timer,
+ * excludes pauses). Prefer the session total, then the last record timer, and
+ * only fall back to timestamp span for files that do not contain timer data.
+ */
+export const resolveFitTotalTimeMs = (
+  session: Record<string, unknown>,
+  records: Array<Record<string, unknown>>,
+  firstTimestamp?: number,
+  lastTimestamp?: number
+) => {
+  const sessionTimerSeconds = finiteNonNegative(session.total_timer_time)
+  if (sessionTimerSeconds !== undefined && sessionTimerSeconds > 0) return sessionTimerSeconds * 1000
+
+  const recordTimerSeconds = records
+    .map(record => finiteNonNegative(record.timer_time))
+    .filter((value): value is number => value !== undefined)
+  const lastTimerSeconds = recordTimerSeconds.at(-1)
+  if (lastTimerSeconds !== undefined && lastTimerSeconds > 0) return lastTimerSeconds * 1000
+
+  if (firstTimestamp !== undefined && lastTimestamp !== undefined && lastTimestamp > firstTimestamp) {
+    return lastTimestamp - firstTimestamp
+  }
+  return 0
+}
+
 const readHeartRateReference = (data: any): HeartRateReference | undefined => {
   const zonesTarget = firstRecord(data?.zones_target ?? data?.zones_targets ?? data?.zonesTarget ?? data?.activity?.zones_target)
   const userProfile = firstRecord(data?.user_profile ?? data?.user_profiles ?? data?.userProfile)
@@ -170,10 +201,12 @@ export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Pro
       metricKeys.add(normalizedKey)
     }
 
+    const timerSeconds = finiteNonNegative(record.timer_time)
     points.push({
       lat,
       lon,
       time,
+      timerTime: timerSeconds === undefined ? undefined : timerSeconds * 1000,
       hr: metrics.heart_rate,
       speed: metrics.speed,
       elevation: metrics.elevation,
@@ -218,7 +251,12 @@ export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Pro
 
   const first = cleaned[0]
   const last = cleaned[cleaned.length - 1]
-  const totalTime = first && last ? last.time - first.time : 0
+  const totalTime = resolveFitTotalTimeMs(
+    session,
+    records,
+    first?.time,
+    last?.time
+  )
 
   const summaryEntries = [
     ...extractSummaryEntries(data?.file_id, []),

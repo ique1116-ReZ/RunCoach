@@ -1,5 +1,7 @@
 import { Run, TrackPoint } from './types'
 
+const timelineTime = (point: TrackPoint) => point.timerTime ?? point.time
+
 export type Sample = {
   lat: number
   lon: number
@@ -18,14 +20,14 @@ export const sampleAtTime = (run: Run, timeMs: number): Sample | null => {
   if (points.length === 0) return null
   const first = points[0]
   const last = points[points.length - 1]
-  if (timeMs <= first.time) return first
-  if (timeMs >= last.time) return last
+  if (timeMs <= timelineTime(first)) return first
+  if (timeMs >= timelineTime(last)) return last
 
   let low = 0
   let high = points.length - 1
   while (low <= high) {
     const mid = Math.floor((low + high) / 2)
-    const midTime = points[mid].time
+    const midTime = timelineTime(points[mid])
     if (midTime === timeMs) return points[mid]
     if (midTime < timeMs) low = mid + 1
     else high = mid - 1
@@ -35,9 +37,9 @@ export const sampleAtTime = (run: Run, timeMs: number): Sample | null => {
   const left = points[low - 1]
   if (!left || !right) return right ?? left ?? null
 
-  const span = right.time - left.time
+  const span = timelineTime(right) - timelineTime(left)
   if (span <= 0) return right
-  const ratio = (timeMs - left.time) / span
+  const ratio = (timeMs - timelineTime(left)) / span
   return interpolatePoint(left, right, ratio)
 }
 

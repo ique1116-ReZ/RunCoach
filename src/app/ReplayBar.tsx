@@ -40,27 +40,28 @@ const formatElevation = (elevation?: number) => {
 const timeAtDistance = (run: Run, distance: number) => {
   const points = run.points
   if (points.length === 0) return 0
-  if (distance <= 0) return points[0].time
-  if (distance >= run.totalDistance) return points[points.length - 1].time
+  const timelineTime = (index: number) => points[index].timerTime ?? points[index].time
+  if (distance <= 0) return timelineTime(0)
+  if (distance >= run.totalDistance) return timelineTime(points.length - 1)
 
   let low = 0
   let high = points.length - 1
   while (low <= high) {
     const mid = Math.floor((low + high) / 2)
     const midDist = points[mid].distFromStart
-    if (midDist === distance) return points[mid].time
+    if (midDist === distance) return timelineTime(mid)
     if (midDist < distance) low = mid + 1
     else high = mid - 1
   }
 
   const right = points[low]
   const left = points[low - 1]
-  if (!left || !right) return (right ?? left)?.time ?? points[0].time
+  if (!left || !right) return right ? timelineTime(low) : left ? timelineTime(low - 1) : timelineTime(0)
 
   const span = right.distFromStart - left.distFromStart
-  if (span <= 0) return right.time
+  if (span <= 0) return timelineTime(low)
   const ratio = (distance - left.distFromStart) / span
-  return left.time + (right.time - left.time) * ratio
+  return timelineTime(low - 1) + (timelineTime(low) - timelineTime(low - 1)) * ratio
 }
 
 export const ReplayBar = ({ run, map, onOpenDashboard }: { run: Run; map: maplibregl.Map | null; onOpenDashboard: () => void }) => {
@@ -136,7 +137,8 @@ export const ReplayBar = ({ run, map, onOpenDashboard }: { run: Run; map: maplib
       setPct(current => {
         const currentDistance = current * run.totalDistance
         const nextTime = timeAtDistance(run, currentDistance) + elapsed * playbackSpeed
-        const lastTime = run.points[run.points.length - 1]?.time ?? 0
+        const lastPoint = run.points[run.points.length - 1]
+        const lastTime = lastPoint ? (lastPoint.timerTime ?? lastPoint.time) : 0
         if (nextTime >= lastTime) {
           setPlaying(false)
           return 1
