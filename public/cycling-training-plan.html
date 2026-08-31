@@ -4053,32 +4053,46 @@ function adjust(item, action, p, opts){
   var okHere = function(x){ return okFor(x, venue); };
 
   if(action==='easier'){
-    /* 「降强度」必须三个都不升：分区不升、时长不升、难度不升。
-       只要有一条升了，用户点这个按钮就是被骗了。 */
-    var easierThan = function(x){
-      return x && x.zmax <= c.zmax && x.m <= c.m + 0.001 &&
-             (x.l == null || c.l == null || x.l <= c.l + 0.001);
+    /* 「今天没状态」不是「原课少骑十分钟」。质量课保留原课型，哪怕时长
+       变短，主刺激仍然没变：45′ 节奏换成 35′ 节奏，身体收到的还是节奏课。
+
+       这里明确把临时降档和周期计划里的逐级退让分开：
+         · 节奏 / 甜蜜点 / 阈值 / VO2max / 测试 → Z2 有氧，找不到再 Z1
+         · 长距离耐力 → 普通 Z2 有氧，找不到再 Z1
+         · 普通有氧 → Z1 轻松骑
+         · 已经是轻松骑 → 才允许在同课型里继续减量
+
+       跨课型只比较 intensity_level（真正的强度难度），不能比较 level；
+       level 是体积难度，30 分钟节奏和 30 分钟轻松骑可能碰巧一样。 */
+    var lowTypes = c.t==='recovery' ? ['recovery']
+                 : c.t==='endurance' ? ['recovery']
+                 : ['endurance','recovery'];
+    var actuallyEasier = function(x){
+      if(!x || x.id===c.id || x.m > c.m + 0.001) return false;
+      if(c.t==='recovery')
+        return x.t==='recovery' && (x.l==null || c.l==null || x.l < c.l - 0.001 || x.m < c.m);
+      var zoneDropped = x.zmax < c.zmax ||
+        (c.t==='long_endurance' && x.t==='endurance' && x.zmax<=c.zmax);
+      return zoneDropped &&
+             (x.il==null || c.il==null || x.il < c.il - 0.001);
     };
-    var cand = [];
-    [c.sub[0], c.sub[2]].forEach(function(id){ if(id && byId[id]) cand.push(byId[id]); });
-    var chain = (DOWN_CHAIN[c.t] || [c.t]).slice();
-    if(chain.indexOf('recovery') < 0) chain.push('recovery');
-    var target = cand.filter(function(x){ return easierThan(x) && okHere(x); })[0];
-    if(!target){
-      for(var ci=0; ci<chain.length && !target; ci++){
-        var tt = chain[ci];
-        var pool = C.filter(function(x){
-          return x.t===tt && x.id!==c.id && easierThan(x) && okHere(x);
-        });
-        /* 同课型内先降一小档：优先离原课最近的那一节，别一步掉到 20 分钟轻松骑 */
-        pool.sort(function(a,b){
-          return (b.zmax-a.zmax) || ((b.l==null?0:b.l)-(a.l==null?0:a.l)) || (b.m-a.m);
-        });
-        target = pool[0];
-      }
+    var target = null;
+    for(var ci=0; ci<lowTypes.length && !target; ci++){
+      var tt = lowTypes[ci];
+      var pool = C.filter(function(x){
+        return x.t===tt && actuallyEasier(x) && okHere(x);
+      });
+      /* 先尽量保留原计划的骑行时间，再从同长度里选更柔和的一节。
+         降的是刺激类型；只有课程库没有相近时长时才顺带减量。 */
+      pool.sort(function(a,b){
+        return Math.abs(a.m-c.m)-Math.abs(b.m-c.m)
+            || ((a.il==null?0:a.il)-(b.il==null?0:b.il))
+            || ((a.l==null?0:a.l)-(b.l==null?0:b.l));
+      });
+      target = pool[0];
     }
     if(!target) return {course:c, note:'已是当前条件下最轻的一档，没有更轻还能执行的模板'};
-    return {course:target, note:'降强度 → '+target.n};
+    return {course:target, note:'没状态，改为'+TYPES[target.t].zh+' → '+target.n};
   }
 
   if(action==='harder'){
