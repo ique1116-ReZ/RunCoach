@@ -12,7 +12,7 @@ Virtual Coach 是一个面向跑步与骑行训练的 AI Web 应用，用自然�
 - 跑步：重点分析配速、心率、步频、爬升和前后程稳定性。
 - 骑行：心率强度区间以 Z1-Z5 占比图表展示，再判断本次骑行对续航、爬坡、冲刺三项能力的训练刺激；冲刺只在可靠功率覆盖达到 80% 时展示，不用速度或心率代替判断。
 
-当前路线生成工具仍只生成跑步路线；骑行数据导入、回放、单次复盘和训练对比均已支持。
+首页同时提供 12 周骑行训练计划和单次骑行数据解析。计划中的每节室外课程都可以按课程总里程、连续训练段和坡度要求推荐骑行路线；生成前可选择骑行环线或单线往返，国内自动使用高德，海外自动使用 ORS。
 
 ## 项目文档
 
@@ -41,12 +41,16 @@ http://127.0.0.1:5173/
 ```bash
 VITE_MAPTILER_KEY=你的 MapTiler key
 VITE_ORS_KEY=你的 OpenRouteService key
+VITE_AMAP_WEB_KEY=你的高德 Web 服务 key
 ```
 
 用途：
 
 - `VITE_MAPTILER_KEY`：地图底图与地名搜索。
-- `VITE_ORS_KEY`：真实路网路线生成。
+- `VITE_ORS_KEY`：海外跑步 / 骑行真实路网路线生成。
+- `VITE_AMAP_WEB_KEY`：中国国内骑行路线生成（需申请高德 Web 服务 API 类型 Key）。
+
+路线 Key 也可以直接在页面右上角“设置 → 骑行路线服务”中填写，只保存在当前浏览器；浏览器内保存的值优先于构建时环境变量。
 
 LLM API Key 不写入 `.env.local`。打开页面后点击右上角齿轮，可选择 Kimi、DeepSeek、OpenAI、Google Gemini 或通义千问 Qwen，选择模型、填写对应平台的 API Key，并点击“测试 API”确认可用。每个平台的模型和 Key 分开保存在当前浏览器，切换回来时会恢复上次保存的配置。模型输入框会提供当前推荐项，也允许直接填写平台控制台中的模型 ID，避免硬编码列表过期。
 
@@ -62,6 +66,7 @@ Kimi 默认使用 `kimi-k2.6`；浏览器中旧的 `kimi-k2.5` 配置会自动�
 
 - `VITE_MAPTILER_KEY`
 - `VITE_ORS_KEY`
+- `VITE_AMAP_WEB_KEY`
 
 底图在没有 MapTiler Key 时会自动使用 OpenFreeMap，FIT / GPX / JSON 导入、轨迹回放、数据看板和 AI 复盘仍可使用。每位同事的 LLM API Key、解读方式和骑行心率设置由他本人在右上角设置中填写，只保存在当前浏览器的 `localStorage`，不会进入 GitHub 构建，也不会被其他访问者共享。
 

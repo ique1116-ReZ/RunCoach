@@ -21,39 +21,73 @@ const landingPrompts = [
 export const ChatDock = ({
   turns,
   docked,
+  mapFocused = false,
   thinking,
   thinkingLabel = '正在思考…',
   pendingReview,
   onReviewUploadedRun,
   onOpenDashboard,
   onDismissPendingReview,
+  onOpenTrainingPlan,
+  onAnalyzeRide,
   onSend,
   onUpload
 }: {
   turns: ChatTurn[]
   docked: boolean
+  mapFocused?: boolean
   thinking?: boolean
   thinkingLabel?: string
   pendingReview?: PendingReviewNotice | null
   onReviewUploadedRun?: () => void
   onOpenDashboard?: () => void
   onDismissPendingReview?: () => void
+  onOpenTrainingPlan: () => void
+  onAnalyzeRide: (file: File) => void
   onSend: (t: string) => void
   onUpload: (f: File) => void
 }) => {
   const msgsRef = useRef<HTMLDivElement>(null)
+  const analysisFileRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight })
   }, [turns, thinking, pendingReview])
 
   return (
-    <div className={`chat-dock ${docked ? 'docked' : 'landing'}`}>
+    <div className={`chat-dock ${docked ? 'docked' : 'landing'} ${mapFocused ? 'map-focused' : ''}`} aria-hidden={mapFocused || undefined}>
       {!docked && (
         <div className="landing-intro">
           <div>
             <p className="landing-kicker">{APP_NAME}</p>
             <h1>今天想怎么练？</h1>
           </div>
+          <button className="training-plan-launch" type="button" onClick={onOpenTrainingPlan}>
+            <span className="training-plan-launch-icon" aria-hidden="true">↗</span>
+            <span className="training-plan-launch-copy">
+              <strong>生成骑行训练计划</strong>
+              <small>按目标、时间和设备生成完整 12 周安排</small>
+            </span>
+            <span className="training-plan-launch-arrow" aria-hidden="true">→</span>
+          </button>
+          <button className="training-plan-launch ride-analysis-launch" type="button" onClick={() => analysisFileRef.current?.click()}>
+            <span className="training-plan-launch-icon" aria-hidden="true">⌁</span>
+            <span className="training-plan-launch-copy">
+              <strong>单次骑行数据解析</strong>
+              <small>导入 FIT、GPX 或 JSON，查看数据看板与训练复盘</small>
+            </span>
+            <span className="training-plan-launch-arrow" aria-hidden="true">→</span>
+          </button>
+          <input
+            ref={analysisFileRef}
+            type="file"
+            accept=".fit,.gpx,.json"
+            hidden
+            onChange={event => {
+              const file = event.target.files?.[0]
+              if (file) onAnalyzeRide(file)
+              event.target.value = ''
+            }}
+          />
           <div className="prompt-chips" aria-label="快捷训练任务">
             {landingPrompts.map(prompt => (
               <button key={prompt} onClick={() => onSend(prompt)}>{prompt}</button>

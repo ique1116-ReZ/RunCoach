@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { postOrs, buildRoundTripBody, buildDirectionsBody, parseGeoJson, generateLoopRoute, generatePointToPointRoute } from './ors'
+import { postOrs, buildRoundTripBody, buildDirectionsBody, parseGeoJson, generateLoopRoute, generatePointToPointRoute, generateOutAndBackRoute } from './ors'
 
 describe('ORS request bodies', () => {
   it('round trip body 携带 length/seed/points 与 elevation', () => {
@@ -94,6 +94,30 @@ describe('generatePointToPointRoute', () => {
     })
     expect(r.kind).toBe('point_to_point')
     expect(r.distanceM).toBe(3200)
+  })
+})
+
+describe('generateOutAndBackRoute', () => {
+  it('沿同一路线折返，并按全程距离校正折返点', async () => {
+    const turns: Array<[number, number]> = []
+    const route = await generateOutAndBackRoute([121.5, 31.2], 20, 'cycling-regular', 2, {
+      fetchRoute: async turn => {
+        turns.push(turn)
+        return {
+          kind: 'point_to_point',
+          coordinates: [[121.5, 31.2], [121.55, 31.24], turn],
+          elevations: [5, 8, 10],
+          distanceM: 9800,
+          ascentM: 22
+        }
+      }
+    })
+    expect(route.distanceM).toBe(19600)
+    expect(route.coordinates).toEqual([
+      [121.5, 31.2], [121.55, 31.24], turns[0], [121.55, 31.24], [121.5, 31.2]
+    ])
+    expect(route.elevations).toEqual([5, 8, 10, 8, 5])
+    expect(route.provider).toBe('ors')
   })
 })
 

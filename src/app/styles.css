@@ -313,9 +313,233 @@ textarea {
   color: #ef4444;
 }
 
+/* ── Training-plan entry and embedded workspace ── */
+.training-plan-launch {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  appearance: none;
+  border: 1px solid rgba(197, 243, 64, 0.46);
+  border-radius: 13px;
+  background: rgba(197, 243, 64, 0.1);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms, border-color 150ms, transform 150ms;
+}
+
+.training-plan-launch:hover,
+.training-plan-launch:focus-visible {
+  border-color: #c5f340;
+  background: rgba(197, 243, 64, 0.17);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.training-plan-launch-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #c5f340;
+  color: #10182b;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.training-plan-launch-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.training-plan-launch-copy strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.training-plan-launch-copy small {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.training-plan-launch-arrow {
+  color: #c5f340;
+  font-size: 20px;
+}
+
+.ride-analysis-launch {
+  border-color: rgba(122, 167, 255, 0.42);
+  background: rgba(122, 167, 255, 0.1);
+}
+
+.ride-analysis-launch:hover,
+.ride-analysis-launch:focus-visible {
+  border-color: var(--accent);
+  background: rgba(122, 167, 255, 0.17);
+}
+
+.ride-analysis-launch .training-plan-launch-icon {
+  background: var(--accent);
+  color: #06101f;
+}
+
+.ride-analysis-launch .training-plan-launch-arrow {
+  color: var(--accent);
+}
+
+.training-plan-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(1, 3, 7, 0.88);
+  backdrop-filter: blur(12px);
+  animation: panel-in 180ms ease-out;
+}
+
+.training-plan-backdrop.hidden {
+  display: none;
+}
+
+.training-plan-dialog {
+  position: relative;
+  width: min(1180px, 100%);
+  height: min(920px, calc(100dvh - 28px));
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 58px minmax(0, 1fr);
+  border: 1px solid rgba(218, 226, 232, 0.22);
+  border-radius: 16px;
+  background: #f5f7f1;
+}
+
+.training-plan-toolbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid rgba(218, 226, 232, 0.14);
+  background: #0e1730;
+}
+
+.training-plan-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.training-plan-mark {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #c5f340;
+  color: #10182b;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.training-plan-heading div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.training-plan-heading strong {
+  font-size: 14px;
+}
+
+.training-plan-heading small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #9ca8b2;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.training-plan-toolbar > button {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  appearance: none;
+  border: 1px solid rgba(218, 226, 232, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f7;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.training-plan-toolbar > button:hover,
+.training-plan-toolbar > button:focus-visible {
+  border-color: #c5f340;
+  color: #c5f340;
+  outline: none;
+}
+
+.training-plan-dialog iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #f5f7f1;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.training-plan-dialog iframe.loaded {
+  opacity: 1;
+}
+
+.training-plan-loading {
+  position: absolute;
+  inset: 58px 0 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: #f5f7f1;
+  color: #667286;
+  font-size: 13px;
+}
+
 @media (max-width: 700px) {
   .home-wordmark {
     font-size: 42px;
+  }
+
+  .training-plan-backdrop {
+    padding: 0;
+  }
+
+  .training-plan-dialog {
+    width: 100%;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .training-plan-heading small {
+    display: none;
   }
 }
 
@@ -578,7 +802,7 @@ textarea {
   top: 64px;
   right: 16px;
   z-index: 10;
-  width: 220px;
+  width: 270px;
   background: var(--panel-bg);
   backdrop-filter: var(--panel-blur);
   border: 1px solid var(--panel-border);
@@ -588,6 +812,102 @@ textarea {
   flex-direction: column;
   gap: 10px;
   animation: panel-in 220ms ease-out;
+}
+
+.route-course-fit {
+  padding: 9px 10px;
+  border: 1px solid rgba(197, 243, 64, 0.28);
+  border-radius: 9px;
+  background: rgba(197, 243, 64, 0.08);
+}
+
+.route-course-fit strong,
+.route-course-fit b,
+.route-course-fit span {
+  display: block;
+}
+
+.route-course-fit strong {
+  color: #eef7d4;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.route-course-fit span {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.route-course-fit b {
+  margin-top: 4px;
+  color: #c5f340;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.course-route-status {
+  position: absolute;
+  z-index: 42;
+  top: 50%;
+  left: 50%;
+  width: min(360px, calc(100% - 32px));
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 14px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(197, 243, 64, 0.38);
+  border-radius: 13px;
+  background: rgba(7, 10, 14, 0.94);
+  backdrop-filter: var(--panel-blur);
+  animation: centered-panel-in 180ms ease-out;
+}
+
+.course-route-status.error {
+  border-color: rgba(242, 153, 74, 0.58);
+}
+
+.course-route-status-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #c5f340;
+  animation: map-pulse 1.1s ease-in-out infinite;
+}
+
+.course-route-status.error .course-route-status-pulse {
+  background: var(--orange);
+  animation: none;
+}
+
+.course-route-status strong,
+.course-route-status span {
+  display: block;
+}
+
+.course-route-status strong {
+  font-size: 13px;
+}
+
+.course-route-status div > span {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.course-route-status button {
+  width: 28px;
+  height: 28px;
+  appearance: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 19px;
 }
 
 .route-card h4 {
@@ -609,6 +929,101 @@ textarea {
 .route-card .row b {
   color: var(--text);
   font-weight: 600;
+}
+
+.route-preview-hint {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--panel-border);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.route-traffic-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid rgba(54, 211, 153, 0.24);
+  border-radius: 9px;
+  background: rgba(54, 211, 153, 0.06);
+}
+
+.route-traffic-analysis.unavailable {
+  border-color: rgba(242, 153, 74, 0.3);
+  background: rgba(242, 153, 74, 0.06);
+}
+
+.route-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.route-map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.route-legend-line {
+  display: inline-block;
+  width: 16px;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.route-legend-line.smooth { background: #36d399; }
+.route-legend-line.normal { background: #5f8fff; }
+
+.route-legend-signal {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: #ff654f;
+  box-shadow: 0 0 0 3px rgba(255, 101, 79, 0.2);
+}
+
+.route-traffic-analysis .row {
+  font-size: 11px;
+}
+
+.route-traffic-analysis small {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.route-traffic-unavailable {
+  color: var(--orange);
+  font-size: 11px;
+}
+
+.route-traffic-retry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.route-traffic-retry button {
+  appearance: none;
+  border: 1px solid rgba(242, 153, 74, 0.45);
+  border-radius: 7px;
+  background: rgba(242, 153, 74, 0.1);
+  color: var(--orange);
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.route-traffic-retry button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .card-btns {
@@ -1211,7 +1626,15 @@ textarea {
     bottom 380ms cubic-bezier(0.4, 0, 0.2, 1),
     top 380ms cubic-bezier(0.4, 0, 0.2, 1),
     width 380ms cubic-bezier(0.4, 0, 0.2, 1),
-    border-radius 380ms cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius 380ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 220ms ease,
+    transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chat-dock.map-focused {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(-100% - 32px));
 }
 
 .chat-dock.landing {
@@ -1911,6 +2334,10 @@ input[type="range"] {
     bottom: 10px;
     width: auto;
     height: min(72vh, 560px);
+  }
+
+  .chat-dock.map-focused {
+    transform: translateY(calc(100% + 24px));
   }
 
   .composer {

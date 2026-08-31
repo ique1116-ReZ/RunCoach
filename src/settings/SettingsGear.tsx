@@ -24,6 +24,12 @@ import {
   type CyclingHeartRateProfile,
   type HomeBackground
 } from '@/app/preferences'
+import { loadRoutingConfig, saveRoutingConfig, type RoutingConfig } from '@/routing/config'
+
+export type RoutingSettingsRequest = {
+  sequence: number
+  provider: 'amap' | 'ors'
+}
 
 type HeartRateDraft = {
   hrmax: string
@@ -62,7 +68,8 @@ export const SettingsGear = ({
   onCoachModeChange,
   homeBackground,
   onHomeBackgroundChange,
-  openHeartRateRequest = 0
+  openHeartRateRequest = 0,
+  routingSettingsRequest
 }: {
   onSaved: (config: LlmConfig) => void
   onHeartRateSaved: (profile: CyclingHeartRateProfile) => void
@@ -71,22 +78,35 @@ export const SettingsGear = ({
   homeBackground: HomeBackground
   onHomeBackgroundChange: (value: HomeBackground) => void
   openHeartRateRequest?: number
+  routingSettingsRequest?: RoutingSettingsRequest
 }) => {
   const initialConfig = loadConfig() ?? loadConfigForProvider('kimi')
   const [open, setOpen] = useState(false)
   const [cfg, setCfg] = useState<LlmConfig>(initialConfig)
   const [mode, setMode] = useState<CoachMode>(coachMode)
   const [heartRateDraft, setHeartRateDraft] = useState<HeartRateDraft>(() => profileToDraft(loadCyclingHeartRateProfile()))
+  const [routingDraft, setRoutingDraft] = useState<RoutingConfig>(() => loadRoutingConfig())
   const [bg, setBg] = useState<HomeBackground>(homeBackground)
   const [show, setShow] = useState(false)
   const [status, setStatus] = useState<string>('')
   const hrmaxInputRef = useRef<HTMLInputElement>(null)
+  const amapKeyInputRef = useRef<HTMLInputElement>(null)
+  const orsKeyInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (openHeartRateRequest <= 0) return
     setOpen(true)
     window.setTimeout(() => hrmaxInputRef.current?.focus(), 0)
   }, [openHeartRateRequest])
+
+  useEffect(() => {
+    if (!routingSettingsRequest?.sequence) return
+    setOpen(true)
+    window.setTimeout(() => {
+      const input = routingSettingsRequest.provider === 'amap' ? amapKeyInputRef.current : orsKeyInputRef.current
+      input?.focus()
+    }, 0)
+  }, [routingSettingsRequest])
 
   useEffect(() => {
     setMode(coachMode)
@@ -159,6 +179,7 @@ export const SettingsGear = ({
     const savedHeartRate = saveCyclingHeartRateProfile(parsed.profile)
     const savedMode = saveCoachMode(mode)
     const savedConfig = saveConfig(cfg)
+    const savedRouting = saveRoutingConfig(routingDraft)
     saveHomeBackground(bg)
     if (savedConfig) {
       setCfg(savedConfig)
@@ -168,6 +189,7 @@ export const SettingsGear = ({
     onCoachModeChange(savedMode)
     onHomeBackgroundChange(bg)
     setHeartRateDraft(profileToDraft(savedHeartRate))
+    setRoutingDraft(savedRouting)
     setStatus('已保存到当前浏览器')
   }
 
@@ -250,6 +272,35 @@ export const SettingsGear = ({
             </div>
             {providerMeta.connectionNote && <div className="settings-note warning">{providerMeta.connectionNote}</div>}
             <div className="settings-note">Key 只保存在当前浏览器，并直接发送到所选模型平台。公共电脑请勿保存长期 Key。</div>
+          </section>
+
+          <section className="settings-section" aria-labelledby="routing-settings-title">
+            <h2 id="routing-settings-title">骑行路线服务</h2>
+            <div className="settings-note">国内自动使用高德，海外自动使用 OpenRouteService。Key 仅保存在当前浏览器。</div>
+            <label htmlFor="amap-web-key">高德 Web 服务 Key</label>
+            <div className="key-row">
+              <input
+                ref={amapKeyInputRef}
+                id="amap-web-key"
+                type={show ? 'text' : 'password'}
+                autoComplete="off"
+                value={routingDraft.amapKey}
+                onChange={event => setRoutingDraft(current => ({ ...current, amapKey: event.target.value }))}
+                placeholder="国内骑行路线"
+              />
+            </div>
+            <label htmlFor="ors-api-key">ORS API Key</label>
+            <div className="key-row">
+              <input
+                ref={orsKeyInputRef}
+                id="ors-api-key"
+                type={show ? 'text' : 'password'}
+                autoComplete="off"
+                value={routingDraft.orsKey}
+                onChange={event => setRoutingDraft(current => ({ ...current, orsKey: event.target.value }))}
+                placeholder="海外骑行与跑步路线"
+              />
+            </div>
           </section>
 
           <section className="settings-section heart-rate-settings" aria-labelledby="heart-rate-settings-title">

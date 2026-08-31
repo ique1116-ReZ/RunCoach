@@ -38,6 +38,7 @@ jobs:
         env:
           VITE_MAPTILER_KEY: ${{ secrets.VITE_MAPTILER_KEY }}
           VITE_ORS_KEY: ${{ secrets.VITE_ORS_KEY }}
+          VITE_AMAP_WEB_KEY: ${{ secrets.VITE_AMAP_WEB_KEY }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

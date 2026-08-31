@@ -1,6 +1,29 @@
+import { loadRoutingConfig } from './config'
+
 export type LngLat = [number, number]
 
-export type RunProfile = 'foot-walking' | 'foot-hiking'
+export type RunProfile = 'foot-walking' | 'foot-hiking' | 'cycling-regular'
+
+export type CourseRouteRecommendation = {
+  courseName: string
+  targetDistanceKm: number
+  clearRoadKm?: number
+  mainBlockKm?: number
+  maxGradePct?: number
+  estimatedSteepGradePct?: number
+  routeShape: 'loop' | 'out_and_back'
+  fitNote: string
+}
+
+export type RouteTrafficAnalysis = {
+  status: 'analyzing' | 'ready' | 'unavailable'
+  source: 'openstreetmap'
+  signals: Array<{ coord: LngLat; alongM: number; occurrencesM: number[] }>
+  smoothSegments: Array<{ coordinates: LngLat[]; distanceM: number }>
+  longestClearM: number
+  requiredClearM: number
+  note: string
+}
 
 export type RouteResult = {
   kind: 'loop' | 'point_to_point'
@@ -8,6 +31,9 @@ export type RouteResult = {
   distanceM: number
   ascentM?: number
   elevations?: number[]
+  provider?: 'amap' | 'ors'
+  recommendation?: CourseRouteRecommendation
+  trafficAnalysis?: RouteTrafficAnalysis
 }
 
 export const buildRoundTripBody = (start: LngLat, lengthM: number, seed: number, points = 5) => ({
@@ -20,6 +46,17 @@ export const buildDirectionsBody = (start: LngLat, end: LngLat) => ({
   coordinates: [start, end],
   elevation: true
 })
+
+const pointAtDistance = ([lng, lat]: LngLat, distanceM: number, bearingDeg: number): LngLat => {
+  const radius = 6371008.8
+  const angular = distanceM / radius
+  const bearing = bearingDeg * Math.PI / 180
+  const lat1 = lat * Math.PI / 180
+  const lng1 = lng * Math.PI / 180
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(angular) + Math.cos(lat1) * Math.sin(angular) * Math.cos(bearing))
+  const lng2 = lng1 + Math.atan2(Math.sin(bearing) * Math.sin(angular) * Math.cos(lat1), Math.cos(angular) - Math.sin(lat1) * Math.sin(lat2))
+  return [lng2 * 180 / Math.PI, lat2 * 180 / Math.PI]
+}
 
 export const parseGeoJson = (json: any, kind: RouteResult['kind']): RouteResult => {
   const feature = json?.features?.[0]
@@ -46,8 +83,8 @@ export const parseGeoJson = (json: any, kind: RouteResult['kind']): RouteResult 
 }
 
 export const postOrs = async (body: object, profile: RunProfile = 'foot-walking'): Promise<any> => {
-  const key = import.meta.env.VITE_ORS_KEY
-  if (!key) throw new Error('缺少 VITE_ORS_KEY，请在 .env.local 配置')
+  const key = loadRoutingConfig().orsKey
+  if (!key) throw new Error('缺少 ORS API Key，请在设置中配置')
   const res = await fetch(`https://api.openrouteservice.org/v2/directions/${profile}/geojson`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: key },
@@ -101,4 +138,38 @@ export const generatePointToPointRoute = async (
     deps.fetchRoute ??
     (async () => parseGeoJson(await postOrs(buildDirectionsBody(start, end), profile), 'point_to_point'))
   return fetchRoute()
+}
+
+export const generateOutAndBackRoute = async (
+  start: LngLat,
+  distanceKm: number,
+  profile: RunProfile = 'cycling-regular',
+  seed = 1,
+  deps: { fetchRoute?: (turn: LngLat) => Promise<RouteResult> } = {}
+): Promise<RouteResult> => {
+  const targetM = distanceKm * 1000
+  let oneWayM = targetM / 2
+  let best: RouteResult | undefined
+  for (let round = 0; round < 3; round += 1) {
+    const turn = pointAtDistance(start, oneWayM, (seed * 137.508 + round * 11) % 360)
+    const outward = deps.fetchRoute
+      ? await deps.fetchRoute(turn)
+      : await generatePointToPointRoute(start, turn, profile)
+    const coordinates = [...outward.coordinates, ...outward.coordinates.slice(0, -1).reverse()]
+    const elevations = outward.elevations
+      ? [...outward.elevations, ...outward.elevations.slice(0, -1).reverse()]
+      : undefined
+    const route: RouteResult = {
+      kind: 'loop',
+      coordinates,
+      elevations,
+      distanceM: outward.distanceM * 2,
+      ascentM: outward.ascentM !== undefined ? outward.ascentM * 2 : undefined,
+      provider: 'ors'
+    }
+    if (!best || Math.abs(route.distanceM - targetM) < Math.abs(best.distanceM - targetM)) best = route
+    if (Math.abs(route.distanceM - targetM) / targetM <= 0.05) return route
+    oneWayM *= targetM / Math.max(route.distanceM, 1)
+  }
+  return best as RouteResult
 }
