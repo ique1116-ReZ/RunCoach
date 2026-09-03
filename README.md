@@ -34,6 +34,38 @@ npm run dev
 http://127.0.0.1:5173/
 ```
 
+## 本地动作库
+
+项目内置 Workout Guide 1.0.0 的完整动作库：302 个动作、每个动作 3 帧，共 906 张本地 PNG。图片位于 `public/vendor/workout-guide/assets`，元数据和检索 API 由 `src/workouts/library.ts` 统一提供。
+
+力量训练中心使用独立入口和页面，与跑步、骑行教练界面分开；可直接访问 `#/strength-library`。页面包含 50 套预置训练计划和完整动作库：计划可按训练重点、水平及器械条件筛选，并显示动作顺序、组数、次数或时长、休息和 RPE；动作库支持动作名搜索，以及按训练部位、器械和训练方式筛选。
+
+`src/workouts/plans.ts` 还导出 `recommendWorkoutPlans()`，可根据训练重点、水平、器械条件和最近推送过的计划 ID 生成稳定且不重复的候选结果，供后续用户计划推送直接调用。
+
+```ts
+import {
+  getLocalWorkoutFrameUrls,
+  getWorkoutExercise,
+  searchWorkoutExercises
+} from '@/workouts/library'
+
+const pushUp = getWorkoutExercise('push-up')
+const pushUpFrames = getLocalWorkoutFrameUrls('push-up')
+const bodyweightChest = searchWorkoutExercises('chest', {
+  equipment: 'Bodyweight'
+})
+```
+
+React 中可直接使用本地图片 URL：
+
+```tsx
+const frameUrl = getLocalWorkoutFrameUrls('push-up')?.[0]
+
+return frameUrl ? <img src={frameUrl} alt="Push-up" /> : null
+```
+
+动作素材采用 CC BY-SA 4.0，代码采用 MIT。发布前应从 App 的“第三方内容/开源许可”页面链接 `getWorkoutLicenseUrls()` 返回的本地署名与许可证文件；修改动作图片时还需说明修改，并以 CC BY-SA 4.0 许可修改后的图片。
+
 ## 环境配置
 
 创建 `.env.local`：

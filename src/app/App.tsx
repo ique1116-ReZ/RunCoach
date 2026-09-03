@@ -101,7 +101,7 @@ const analyzeTrafficWithRetry = async (route: RouteResult) => {
   throw lastError
 }
 
-export default function App() {
+export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: () => void }) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const didAutoCenterRef = useRef(false)
   const [mapReady, setMapReady] = useState(false)
@@ -503,6 +503,10 @@ export default function App() {
       )}
 
       <div className="top-right">
+        <button type="button" className="workout-library-nav" onClick={onOpenWorkoutLibrary}>
+          <span aria-hidden="true">▦</span>
+          力量动作库
+        </button>
         <SettingsGear
           onSaved={setConfig}
           onHeartRateSaved={setHeartRateProfile}
