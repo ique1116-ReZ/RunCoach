@@ -96,7 +96,7 @@ const cool = (exerciseSlug: string, target = '45 秒', sets = 1): WorkoutPlanExe
 })
 
 /**
- * 50 hand-curated templates built from the local 302-exercise catalog.
+ * 49 hand-curated templates built from the local 302-exercise catalog.
  * The order within each plan is intentional: preparation, larger multi-joint
  * movements, accessories/core, then down-regulation where appropriate.
  */
@@ -321,12 +321,6 @@ export const workoutPlans: readonly WorkoutPlan[] = [
     summary: '短时动态活动，适合晨间或训练前轻量唤醒。',
     exercises: [warm('cat-cow-stretch', '45 秒'), warm('arm-circles', '前后各 30 秒'), warm('torso-twist-stretch', '45 秒'), warm('leg-swings-stretch', '每侧 30 秒'), warm('bodyweight-squat', '10 次'), warm('worlds-greatest-stretch', '每侧 30 秒')]
   },
-  {
-    id: 'mobility-06', name: '舒展恢复 06 · 睡前舒缓', focus: 'mobility', level: 'beginner', setting: 'bodyweight', durationMinutes: 14,
-    summary: '低刺激静态舒展，避免以追求幅度代替放松。',
-    exercises: [cool('childs-pose', '60 秒'), cool('cross-body-shoulder-stretch', '每侧 45 秒'), cool('torso-twist-stretch', '每侧 45 秒'), cool('butterfly-stretch', '60 秒'), cool('seated-forward-fold-stretch', '60 秒'), cool('wall-calf-stretch', '每侧 45 秒')]
-  },
-
   {
     id: 'conditioning-01', name: '体能循环 01 · 徒手全身', focus: 'conditioning', level: 'beginner', setting: 'bodyweight', durationMinutes: 24,
     summary: '六动作循环 3 轮，保持技术稳定而非追求极限速度。',

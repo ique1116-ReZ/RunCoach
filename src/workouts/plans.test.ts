@@ -4,8 +4,8 @@ import { getWorkoutExercise } from './library'
 import { filterWorkoutPlans, recommendWorkoutPlans, workoutPlans } from './plans'
 
 describe('workoutPlans', () => {
-  it('provides 50 unique, fully specified plans', () => {
-    expect(workoutPlans).toHaveLength(50)
+  it('provides 49 unique, fully specified plans', () => {
+    expect(workoutPlans).toHaveLength(49)
     expect(new Set(workoutPlans.map(plan => plan.id)).size).toBe(workoutPlans.length)
 
     for (const plan of workoutPlans) {
@@ -31,7 +31,7 @@ describe('workoutPlans', () => {
   })
 
   it('searches both plan copy and included exercise names', () => {
-    expect(filterWorkoutPlans({ query: '睡前' }).map(plan => plan.id)).toContain('mobility-06')
+    expect(filterWorkoutPlans({ query: '骑后' }).map(plan => plan.id)).toContain('mobility-04')
     expect(filterWorkoutPlans({ query: 'trap-bar-deadlift' }).map(plan => plan.id)).toContain('full-body-09')
   })
 
