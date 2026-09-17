@@ -30,6 +30,7 @@ export const ChatDock = ({
   onDismissPendingReview,
   onOpenTrainingPlan,
   onAnalyzeRide,
+  onAnalyzeBatch,
   onSend,
   onUpload
 }: {
@@ -44,11 +45,13 @@ export const ChatDock = ({
   onDismissPendingReview?: () => void
   onOpenTrainingPlan: () => void
   onAnalyzeRide: (file: File) => void
+  onAnalyzeBatch: (files: File[]) => void
   onSend: (t: string) => void
   onUpload: (f: File) => void
 }) => {
   const msgsRef = useRef<HTMLDivElement>(null)
   const analysisFileRef = useRef<HTMLInputElement>(null)
+  const batchFileRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight })
   }, [turns, thinking, pendingReview])
@@ -77,6 +80,14 @@ export const ChatDock = ({
             </span>
             <span className="training-plan-launch-arrow" aria-hidden="true">→</span>
           </button>
+          <button className="training-plan-launch capability-launch" type="button" onClick={() => batchFileRef.current?.click()}>
+            <span className="training-plan-launch-icon" aria-hidden="true">◈</span>
+            <span className="training-plan-launch-copy">
+              <strong>批量建立能力画像</strong>
+              <small>一次选择多份 FIT / GPX，立即生成五维雷达并让 AI 统一给建议</small>
+            </span>
+            <span className="training-plan-launch-arrow" aria-hidden="true">→</span>
+          </button>
           <input
             ref={analysisFileRef}
             type="file"
@@ -85,6 +96,18 @@ export const ChatDock = ({
             onChange={event => {
               const file = event.target.files?.[0]
               if (file) onAnalyzeRide(file)
+              event.target.value = ''
+            }}
+          />
+          <input
+            ref={batchFileRef}
+            type="file"
+            accept=".fit,.gpx"
+            multiple
+            hidden
+            onChange={event => {
+              const files = Array.from(event.target.files ?? [])
+              if (files.length) onAnalyzeBatch(files)
               event.target.value = ''
             }}
           />
@@ -139,7 +162,7 @@ export const ChatDock = ({
           )}
         </div>
       )}
-      <Composer docked={docked} onSend={onSend} onUpload={onUpload} />
+      <Composer docked={docked} onSend={onSend} onUpload={onUpload} onAnalyzeBatch={onAnalyzeBatch} />
     </div>
   )
 }

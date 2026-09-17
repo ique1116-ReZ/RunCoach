@@ -2,10 +2,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { toolSchemas, executeTool } from './tools'
 
 describe('tools', () => {
-  it('schema 暴露 7 个工具且名字正确', () => {
+  it('schema 暴露 8 个工具且名字正确', () => {
     const names = toolSchemas.map((t: any) => t.function.name).sort()
     expect(names).toEqual([
-      'analyze_run', 'ask_run_terrain', 'ask_start_point', 'compare_runs',
+      'analyze_capability_profile', 'analyze_run', 'ask_run_terrain', 'ask_start_point', 'compare_runs',
       'generate_loop_route', 'generate_point_to_point_route', 'geocode_place'
     ])
   })

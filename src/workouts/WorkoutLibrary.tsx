@@ -220,7 +220,6 @@ export const WorkoutLibrary = ({ onClose }: { onClose: () => void }) => {
           <div>
             <p className="workout-library-kicker">Strength Training · Program Studio</p>
             <h1 id="workout-library-title">力量训练中心</h1>
-            <p>独立训练工具 · {workoutPlans.length} 套计划 · 302 个动作 · 906 帧本地预览</p>
           </div>
           <button type="button" className="workout-library-back" onClick={onClose}><span aria-hidden="true">←</span>返回教练</button>
         </header>

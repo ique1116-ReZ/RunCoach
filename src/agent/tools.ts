@@ -1,6 +1,7 @@
 import { generateLoopRoute, generatePointToPointRoute, type RouteResult, type LngLat, type RunProfile } from '@/routing/ors'
 import { geocodePlace } from '@/routing/geocode'
 import { buildRunDigest, buildComparisonDigest } from '@/analysis/digest'
+import { buildCapabilityDigest } from '@/analysis/capability'
 import type { Run } from '@runs/types'
 
 export type ToolContext = {
@@ -86,6 +87,20 @@ export const toolSchemas = [
           relation: { type: 'string', enum: ['auto', 'same_athlete', 'different_athletes'] }
         },
         required: ['run_id_a', 'run_id_b']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'analyze_capability_profile',
+      description: '统一分析多份近90天骑行数据，计算冲刺、巡航、中长耐力、长途耐力和爬坡五轴能力，并返回训练建议所需的证据',
+      parameters: {
+        type: 'object',
+        properties: {
+          run_ids: { type: 'array', items: { type: 'string' }, description: '已上传骑行文件对应的 run_id 列表' }
+        },
+        required: ['run_ids']
       }
     }
   },
@@ -205,6 +220,14 @@ export const executeTool = async (name: string, args: any, ctx: ToolContext): Pr
       const b = ctx.runs.get(args.run_id_b)
       if (!a || !b) return fail('需要两份已上传训练才能对比')
       return ok(buildComparisonDigest(a, b, args.relation ?? 'auto'))
+    }
+    if (name === 'analyze_capability_profile') {
+      const ids: string[] = Array.isArray(args.run_ids)
+        ? args.run_ids.filter((id: unknown): id is string => typeof id === 'string')
+        : []
+      const selectedRuns = ids.map(id => ctx.runs.get(id)).filter((run): run is Run => !!run)
+      if (!selectedRuns.length) return fail('需要至少一份已上传的骑行数据才能建立能力画像')
+      return ok(buildCapabilityDigest(selectedRuns))
     }
     return fail(`未知工具：${name}`)
   } catch (e: any) {

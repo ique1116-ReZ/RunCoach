@@ -1,14 +1,35 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CourseRouteRequest } from '@/routing/cycling-route'
+import type { TrainingGoalId } from '@/analysis/capability'
+import type { TrainingHistorySummary } from '@/analysis/training-history'
 
-export const TrainingPlanOverlay = ({ open, onClose, onRecommendRoute }: {
+export const TrainingPlanOverlay = ({ open, initialGoal, initialHistory, onClose, onRecommendRoute }: {
   open: boolean
+  initialGoal?: TrainingGoalId
+  initialHistory?: TrainingHistorySummary
   onClose: () => void
   onRecommendRoute: (course: CourseRouteRequest) => void
 }) => {
   const [loaded, setLoaded] = useState(false)
   const closeRef = useRef<HTMLButtonElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
+
+  const syncPlanContext = () => {
+    const target = frameRef.current?.contentWindow
+    if (!target) return
+    if (initialGoal) {
+      target.postMessage(
+        { type: 'virtualcoach:set-training-goal', goal: initialGoal },
+        window.location.origin
+      )
+    }
+    if (initialHistory) {
+      target.postMessage(
+        { type: 'virtualcoach:set-training-history', history: initialHistory },
+        window.location.origin
+      )
+    }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -31,6 +52,10 @@ export const TrainingPlanOverlay = ({ open, onClose, onRecommendRoute }: {
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
   }, [onRecommendRoute])
+
+  useEffect(() => {
+    if (open && loaded) syncPlanContext()
+  }, [initialGoal, initialHistory, loaded, open])
 
   return (
     <div className={`training-plan-backdrop ${open ? '' : 'hidden'}`} role="presentation" aria-hidden={!open} onMouseDown={event => {
@@ -60,7 +85,7 @@ export const TrainingPlanOverlay = ({ open, onClose, onRecommendRoute }: {
           className={loaded ? 'loaded' : ''}
           src={`${import.meta.env.BASE_URL}cycling-training-plan.html`}
           title="骑行训练计划生成器"
-          onLoad={() => setLoaded(true)}
+          onLoad={() => { setLoaded(true); syncPlanContext() }}
         />
       </section>
     </div>

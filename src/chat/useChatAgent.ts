@@ -5,10 +5,12 @@ import type { CoachMode } from '@/app/preferences'
 import type { ChatMessage, LlmConfig } from '@/llm/provider'
 import type { ChatTurn } from './ChatDock'
 
-export const useChatAgent = ({ config, ctx, coachMode }: {
+export const useChatAgent = ({ config, ctx, coachMode, onAssistantResponse, onAgentError }: {
   config: LlmConfig | null
   ctx: ToolContext
   coachMode: CoachMode
+  onAssistantResponse?: (text: string) => void
+  onAgentError?: (text: string) => void
 }) => {
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [busy, setBusy] = useState(false)
@@ -27,9 +29,14 @@ export const useChatAgent = ({ config, ctx, coachMode }: {
       const produced = await runAgent(config, history.current, ctx, { coachMode })
       history.current.push(...produced)
       const finalText = [...produced].reverse().find(m => m.role === 'assistant' && m.content)?.content
-      if (finalText) pushAssistant(finalText)
+      if (finalText) {
+        pushAssistant(finalText)
+        onAssistantResponse?.(finalText)
+      }
     } catch (e: any) {
-      pushAssistant(`出错了：${String(e?.message ?? e)}`)
+      const message = `出错了：${String(e?.message ?? e)}`
+      pushAssistant(message)
+      onAgentError?.(message)
     } finally {
       setBusy(false)
     }

@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 
-export const Composer = ({ docked, onSend, onUpload }: {
+export const Composer = ({ docked, onSend, onUpload, onAnalyzeBatch }: {
   docked: boolean
   onSend: (t: string) => void
   onUpload: (f: File) => void
+  onAnalyzeBatch: (files: File[]) => void
 }) => {
   const [text, setText] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const actionsRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const batchFileRef = useRef<HTMLInputElement>(null)
   const submit = () => { const t = text.trim(); if (t) { onSend(t); setText('') } }
   const openFilePicker = () => {
     setMenuOpen(false)
     fileRef.current?.click()
+  }
+  const openBatchPicker = () => {
+    setMenuOpen(false)
+    batchFileRef.current?.click()
   }
 
   useEffect(() => {
@@ -50,10 +56,16 @@ export const Composer = ({ docked, onSend, onUpload }: {
               <span>导入 FIT / GPX</span>
               <small>支持 FIT、GPX、JSON</small>
             </button>
+            <button className="composer-menu-item" role="menuitem" onClick={openBatchPicker}>
+              <span>批量建立能力画像</span>
+              <small>一次选择多份 FIT / GPX</small>
+            </button>
           </div>
         )}
         <input ref={fileRef} type="file" accept=".gpx,.fit,.json" hidden
           onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = '' }} />
+        <input ref={batchFileRef} type="file" accept=".gpx,.fit" multiple hidden
+          onChange={e => { const files = Array.from(e.target.files ?? []); if (files.length) onAnalyzeBatch(files); e.target.value = '' }} />
       </div>
       <input className="composer-input" value={text} placeholder="问问跑步/骑行教练，或点 + 导入训练…"
         onChange={e => setText(e.target.value)}

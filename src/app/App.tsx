@@ -19,6 +19,8 @@ import { parseGpxFile } from '@runs/gpx'
 import { parseFitFile } from '@runs/fit'
 import { parseJsonFile } from '@runs/json'
 import { activityTypeLabel } from '@runs/activity'
+import { buildCapabilityProfile, type CapabilityProfile, type TrainingGoalId } from '@/analysis/capability'
+import { buildTrainingHistorySummary, type TrainingHistorySummary } from '@/analysis/training-history'
 import { TerrainCard } from './TerrainCard'
 import { StartPointCard } from './StartPointCard'
 import { PinConfirm } from './PinConfirm'
@@ -27,6 +29,7 @@ import { ActivityDashboard } from './ActivityDashboard'
 import { DitherMapBackdrop } from './DitherMapBackdrop'
 import { TrainingPlanOverlay } from './TrainingPlanOverlay'
 import { RouteShapeCard } from './RouteShapeCard'
+import { CapabilityRadar } from './CapabilityRadar'
 import {
   loadCyclingHeartRateProfile,
   loadCoachMode,
@@ -101,6 +104,31 @@ const analyzeTrafficWithRetry = async (route: RouteResult) => {
   throw lastError
 }
 
+const fileExtension = (file: File) => file.name.split('.').pop()?.toLowerCase() ?? ''
+
+const parseActivityFile = async (file: File): Promise<Run> => {
+  const extension = fileExtension(file)
+  if (extension === 'fit') return parseFitFile(await file.arrayBuffer(), file.name)
+  const text = await file.text()
+  if (extension === 'json') return parseJsonFile(text, file.name)
+  if (extension === 'gpx') return parseGpxFile(text, file.name)
+  throw new Error(`暂不支持 .${extension || 'unknown'} 文件，请选择 FIT 或 GPX`)
+}
+
+const runFingerprint = (run: Run) => {
+  const first = run.points[0]
+  const last = run.points[run.points.length - 1]
+  if (!first || !last) return `${run.sourcePath}|empty`
+  return [
+    Math.round(first.time / 60_000),
+    Math.round(run.totalDistance / 100),
+    first.lat.toFixed(3),
+    first.lon.toFixed(3),
+    last.lat.toFixed(3),
+    last.lon.toFixed(3)
+  ].join('|')
+}
+
 export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: () => void }) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const didAutoCenterRef = useRef(false)
@@ -115,8 +143,17 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const routesRef = useRef<RouteResult[]>([])               // 给 memo 化的 onRoute 用，避免陈旧闭包
   const [run, setRun] = useState<Run | null>(null)
   const [dashboardOpen, setDashboardOpen] = useState(false)
+  const [capabilityOpen, setCapabilityOpen] = useState(false)
+  const [capabilityProfile, setCapabilityProfile] = useState<CapabilityProfile | null>(null)
+  const [capabilityFileNames, setCapabilityFileNames] = useState<string[]>([])
+  const [capabilityWarning, setCapabilityWarning] = useState('')
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null)
+  const [capabilityAiStatus, setCapabilityAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [capabilityAiText, setCapabilityAiText] = useState<string | null>(null)
+  const capabilityAiPendingRef = useRef(false)
   const [trainingPlanOpen, setTrainingPlanOpen] = useState(false)
   const [trainingPlanMounted, setTrainingPlanMounted] = useState(false)
+  const [trainingPlanGoal, setTrainingPlanGoal] = useState<TrainingGoalId | undefined>()
   const [courseRouteStatus, setCourseRouteStatus] = useState<CourseRouteStatus | null>(null)
   const [courseRouteMapMode, setCourseRouteMapMode] = useState(false)
   const [courseRouteContext, setCourseRouteContext] = useState<CourseRouteContext | null>(null)
@@ -129,6 +166,10 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const [openHeartRateSettingsRequest, setOpenHeartRateSettingsRequest] = useState(0)
   const [homeBackground, setHomeBackground] = useState<HomeBackground>(loadHomeBackground())
   const runs = useRef<Map<string, Run>>(new Map())
+  const trainingHistory = useMemo<TrainingHistorySummary>(() =>
+    buildTrainingHistorySummary(Array.from(runs.current.values())),
+    [run, capabilityProfile]
+  )
 
   // 引导卡片 / 选点状态
   const [terrainResolve, setTerrainResolve] = useState<((t: 'trail' | 'road' | null) => void) | null>(null)
@@ -315,7 +356,27 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
     paintRoute(routes[i])
   }
 
-  const { turns, busy, send, pushAssistant } = useChatAgent({ config, ctx, coachMode })
+  const handleCapabilityAiResponse = useCallback((text: string) => {
+    if (!capabilityAiPendingRef.current) return
+    capabilityAiPendingRef.current = false
+    setCapabilityAiText(text)
+    setCapabilityAiStatus('ready')
+  }, [])
+
+  const handleCapabilityAiError = useCallback((text: string) => {
+    if (!capabilityAiPendingRef.current) return
+    capabilityAiPendingRef.current = false
+    setCapabilityAiText(text)
+    setCapabilityAiStatus('error')
+  }, [])
+
+  const { turns, busy, send, pushAssistant } = useChatAgent({
+    config,
+    ctx,
+    coachMode,
+    onAssistantResponse: handleCapabilityAiResponse,
+    onAgentError: handleCapabilityAiError
+  })
   // 卡片/选点活跃时是“等用户操作”，不算 AI 在思考；只有真正等模型时才显示输入动画
   const cardActive = !!(terrainResolve || startResolve || routeShapeResolve || picking)
 
@@ -331,10 +392,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
 
   const onUpload = async (file: File) => {
     if (!docked) setDocked(true)
-    const text = file.name.endsWith('.fit') ? '' : await file.text()
-    const imported: Run = file.name.endsWith('.fit')
-      ? await parseFitFile(await file.arrayBuffer(), file.name)
-      : file.name.endsWith('.json') ? await parseJsonFile(text, file.name) : parseGpxFile(text, file.name)
+    const imported = await parseActivityFile(file)
     const parsed: Run = imported.activityType === 'cycling'
       ? {
           ...imported,
@@ -359,6 +417,85 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const analyzeRide = async (file: File) => {
     await onUpload(file)
     setDashboardOpen(true)
+  }
+
+  const analyzeBatch = async (files: File[]) => {
+    if (!files.length) return
+    if (!docked) setDocked(true)
+    setPendingReview(null)
+    setDashboardOpen(false)
+    setCapabilityOpen(false)
+    setCapabilityProfile(null)
+    setCapabilityFileNames(files.map(file => file.name))
+    setCapabilityWarning('')
+    setCapabilityAiText(null)
+    setCapabilityAiStatus('idle')
+    capabilityAiPendingRef.current = false
+    setBatchProgress({ done: 0, total: files.length })
+
+    const parsedRuns: Run[] = []
+    const failures: string[] = []
+    for (const [index, file] of files.entries()) {
+      try {
+        const imported = await parseActivityFile(file)
+        const parsed = imported.activityType === 'cycling'
+          ? { ...imported, heartRateReference: resolveCyclingHeartRateReference(heartRateProfile, imported.heartRateReference) }
+          : imported
+        parsedRuns.push(parsed)
+      } catch (error: any) {
+        failures.push(`${file.name}（${String(error?.message ?? error)}）`)
+      } finally {
+        setBatchProgress({ done: index + 1, total: files.length })
+      }
+    }
+    setBatchProgress(null)
+
+    const fingerprints = new Set<string>()
+    const uniqueRuns = parsedRuns.filter(parsed => {
+      const fingerprint = runFingerprint(parsed)
+      if (fingerprints.has(fingerprint)) return false
+      fingerprints.add(fingerprint)
+      return true
+    })
+    const duplicateCount = parsedRuns.length - uniqueRuns.length
+    if (!uniqueRuns.length) {
+      const message = failures.length ? `文件解析失败：${failures.join('；')}` : '没有解析出可用的骑行数据，请换一批 FIT 或 GPX 文件。'
+      setCapabilityWarning(message)
+      pushAssistant(message)
+      return
+    }
+
+    uniqueRuns.forEach(parsed => runs.current.set(parsed.id, parsed))
+    const latestRun = uniqueRuns[uniqueRuns.length - 1]
+    setRun(latestRun)
+    const map = mapRef.current
+    if (map) {
+      const track = latestRun.points.map(point => [point.lon, point.lat] as LngLat)
+      setTrack(map, track)
+      fitToCoords(map, track)
+    }
+
+    const warnings = [
+      failures.length ? `${failures.length} 个文件解析失败` : '',
+      duplicateCount ? `${duplicateCount} 个重复活动已去重` : ''
+    ].filter(Boolean)
+    setCapabilityWarning(warnings.join(' · '))
+    const profile = buildCapabilityProfile(uniqueRuns)
+    setCapabilityProfile(profile)
+    setCapabilityOpen(true)
+
+    const runIds = uniqueRuns.map(parsed => parsed.id).join(',')
+    if (config?.apiKey) {
+      capabilityAiPendingRef.current = true
+      setCapabilityAiStatus('loading')
+    } else {
+      setCapabilityAiStatus('error')
+      setCapabilityAiText('AI 分析尚未执行：请先配置 API Key。')
+    }
+    void send(
+      `已批量导入 ${uniqueRuns.length} 份骑行数据，请统一分析这批数据，结合五维能力画像给出下一阶段训练建议。`,
+      `capability_run_ids=${runIds}`
+    )
   }
 
   const reviewUploadedRun = () => {
@@ -450,6 +587,13 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const returnToTrainingPlan = () => {
     setCourseRouteStatus(null)
     setCourseRouteMapMode(false)
+    setTrainingPlanOpen(true)
+  }
+
+  const openTrainingPlanForGoal = (goalId: TrainingGoalId) => {
+    setCapabilityOpen(false)
+    setTrainingPlanGoal(goalId)
+    setTrainingPlanMounted(true)
     setTrainingPlanOpen(true)
   }
 
@@ -629,7 +773,37 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       )}
 
       {trainingPlanMounted && (
-        <TrainingPlanOverlay open={trainingPlanOpen} onClose={() => setTrainingPlanOpen(false)} onRecommendRoute={startCourseRoute} />
+        <TrainingPlanOverlay
+          open={trainingPlanOpen}
+          initialGoal={trainingPlanGoal}
+          initialHistory={trainingHistory.rideCount ? trainingHistory : undefined}
+          onClose={() => setTrainingPlanOpen(false)}
+          onRecommendRoute={startCourseRoute}
+        />
+      )}
+
+      {batchProgress && (
+        <div className="batch-import-status" role="status" aria-live="polite">
+          <span className="course-route-status-pulse" aria-hidden="true" />
+          <div>
+            <strong>正在读取骑行数据</strong>
+            <span>{batchProgress.done}/{batchProgress.total} 个文件已处理</span>
+          </div>
+        </div>
+      )}
+
+      {capabilityProfile && capabilityOpen && (
+        <CapabilityRadar
+          profile={capabilityProfile}
+          fileNames={capabilityFileNames}
+          aiBusy={busy}
+          aiConfigured={!!config?.apiKey}
+          aiStatus={capabilityAiStatus}
+          aiText={capabilityAiText}
+          parseWarning={capabilityWarning}
+          onClose={() => setCapabilityOpen(false)}
+          onGenerateTrainingPlan={openTrainingPlanForGoal}
+        />
       )}
 
       <ChatDock
@@ -642,8 +816,9 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
         onReviewUploadedRun={reviewUploadedRun}
         onOpenDashboard={() => setDashboardOpen(true)}
         onDismissPendingReview={() => setPendingReview(null)}
-        onOpenTrainingPlan={() => { setTrainingPlanMounted(true); setTrainingPlanOpen(true) }}
+        onOpenTrainingPlan={() => { setTrainingPlanGoal(undefined); setTrainingPlanMounted(true); setTrainingPlanOpen(true) }}
         onAnalyzeRide={file => { void analyzeRide(file) }}
+        onAnalyzeBatch={files => { void analyzeBatch(files) }}
         onSend={onSend}
         onUpload={onUpload}
       />

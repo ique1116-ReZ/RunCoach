@@ -56,6 +56,7 @@ section{padding:42px 0}
 .q:before{content:counter(question,"decimal-leading-zero"); position:absolute; top:29px; left:0; color:var(--orange); font:700 13px/1 "Space Grotesk",sans-serif; letter-spacing:.06em}
 .q>label{display:block; margin-bottom:12px; font-size:18px; font-weight:700; line-height:1.25}
 .q .hint{font-weight:500; color:var(--muted); font-size:12px; margin-left:8px; letter-spacing:0}
+.q .hint.auto{color:var(--accent-strong); font-weight:700}
 .opts{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:11px}
 .opt{position:relative; min-height:68px; border:1px solid var(--line); background:var(--surface); border-radius:17px; padding:14px 16px;
   text-align:left; cursor:pointer; color:var(--ink); line-height:1.35; box-shadow:0 2px 0 rgb(14 23 48 / 3%)}
@@ -75,6 +76,7 @@ section{padding:42px 0}
 .pill[aria-pressed="true"]{background:var(--navy); border-color:var(--navy); color:#fff; box-shadow:0 7px 15px rgb(14 23 48 / 14%)}
 input[type=date],input[type=number],select{height:48px; font-size:15px; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:13px; padding:9px 12px}
 input[type=date]:focus,input[type=number]:focus,select:focus{border-color:var(--accent-strong); box-shadow:0 0 0 4px rgb(197 243 64 / 18%); outline:0}
+.nf input.auto-filled{border-color:var(--accent-strong); background:rgb(197 243 64 / 8%); color:var(--ink)}
 .inline{display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:15px}
 .check{display:flex; gap:8px; align-items:center; font-size:15px; cursor:pointer}
 .go{display:flex; align-items:center; justify-content:center; gap:12px; margin-top:30px; background:var(--accent); color:var(--accent-ink); border:0; border-radius:17px;
@@ -456,7 +458,6 @@ footer{padding:22px 0 40px; color:var(--muted); font-size:13px}
   .cal-cell:hover .cal-date em,.cal-cell:hover .cal-meta{color:var(--retro-bg)}
   .cal-type{display:block;margin-top:13px;min-height:30px;font-size:10px;font-weight:700;line-height:1.35}
   .cal-meta{display:block;margin-top:4px;color:var(--retro-muted);font-size:9px}
-  .cal-cell.excused .cal-type{color:var(--retro-muted);text-decoration:line-through}
   .cal-cell.done .cal-type:before{content:"✓ ";color:var(--z2)}
   .cal-bar{display:flex;height:7px;margin-top:13px;overflow:hidden;background:var(--retro-soft)}
   .cal-bar i{display:block;height:100%;min-width:2px}
@@ -497,7 +498,7 @@ footer{padding:22px 0 40px; color:var(--muted); font-size:13px}
   </div>
 
   <div class="q">
-    <label>最近 4 周的骑行数据<span class="hint">App 自动读取，也可以自己改</span></label>
+    <label>最近 4 周的骑行数据<span class="hint" id="historyHint">上传 FIT / GPX 后自动读取，也可以自己改</span></label>
     <div class="nums">
       <label class="nf"><span>每周平均骑行时间</span><input type="number" id="i-weeklyMin" min="0" max="1500" step="10" value="210"><em>分钟</em></label>
       <label class="nf"><span>最长一次骑行时长</span><input type="number" id="i-longestMin" min="0" max="600" step="5" value="95"><em>分钟</em></label>
@@ -3949,12 +3950,14 @@ function generate(inp, weeksToBuild, execHistory, seed){
         0.97^12 = 0.69，等于「照计划全部完成，能力反而掉了三成」。
         没练的能力会退，但退不到比入场时还弱，那不是退步是记账错误。 */
 function applyOutcomes(p, week, outcomes){
+  /* 兼容旧记录：未实际训练统一按 skipped 处理。 */
+  if(outcomes) outcomes = outcomes.map(function(o){ return o==='excused' ? 'skipped' : o; });
   var np = Object.assign({}, p);
   np.lv = Object.assign({}, p.lv);
   np.log = [];
   np.keyMiss = false;                        /* 每周重算，不能一次挂课背一辈子 */
   var touched = {}, gain = {}, loss = {};
-  var cnt = {completed:0, partial:0, skipped:0, excused:0};
+  var cnt = {completed:0, partial:0, skipped:0};
   np.lvDemo = Object.assign({}, p.lvDemo || {});
 
   week.items.forEach(function(x, i){
@@ -3982,7 +3985,6 @@ function applyOutcomes(p, week, outcomes){
     }
   });
   var effective = cnt.completed + cnt.partial;
-  var present = effective + cnt.excused;
 
   /* 迁移：练硬的课型会带一点相邻的软课型。做了阈值，节奏跟着受益，
      这是真的；但只给一半，而且只给这周没单独排到的课型，避免重复计分。 */
@@ -4024,20 +4026,8 @@ function applyOutcomes(p, week, outcomes){
     np.lv[t] = round1(v);
   });
 
-  /* 缺训判定要分清三件事：
-       练到了（有完成或部分完成）→ 正常推进
-       请了假（明确说了这周不练）→ 计划暂停，不罚、不涨、周数不动
-       什么都没交（全部未完成）  → 才算缺训
-     原来把「请假」也算缺训，连着两周请假直接把计划判死，
-     这是最容易得罪人的一处：用户明明按规矩报备了。 */
-  if(effective > 0)          np.absentStreak = 0;
-  else if(cnt.excused > 0)   np.absentStreak = (p.absentStreak||0);
-  else                       np.absentStreak = (p.absentStreak||0)+1;
-
-  if(effective===0 && cnt.excused>0){
-    np.log.push('整周请假：level 与训练量都不动，下一周照原计划继续。');
-    return np;
-  }
+  /* 是否缺训只看有没有实际训练，不区分未训练的原因。 */
+  np.absentStreak = effective > 0 ? 0 : (p.absentStreak||0)+1;
 
   if(effective===0 && np.absentStreak===1){
     Object.keys(np.lv).forEach(function(t){ np.lv[t] = round1(Math.max(TYPES[t].level_floor, np.lv[t]*0.90)); });
@@ -4190,10 +4180,10 @@ function applyOutcomes(p, week, outcomes){
 }
 
 /* ---------------------------------------------------------------------
-   调整（PRD 6）：请假 / 降强度 / 改期 / 换室内。都走课程库的 substitution。
+   调整（PRD 6）：降强度 / 改期 / 换室内。都走课程库的 substitution。
    ------------------------------------------------------------------ */
 /* ---------------------------------------------------------------------
-   调整（PRD 6）：请假 / 降强度 / 改期 / 换室内。都走课程库的 substitution，
+   调整（PRD 6）：降强度 / 改期 / 换室内。都走课程库的 substitution，
    但 substitution 是课程库作者按「训练目的」写的静态映射，它不知道
    这个用户有没有功率计、有没有骑行台、今天在室内还是室外、当日强度
    上限是几区。照着 sub 直接换的实测结果：
@@ -4463,6 +4453,43 @@ $('goals').innerHTML = Object.keys(G).map(function(g){
 $('goals').addEventListener('click', function(e){
   var b=e.target.closest('.opt'); if(!b) return; st.goal=b.dataset.g;
   [].forEach.call(this.children,function(x){x.setAttribute('aria-pressed',String(x.dataset.g===st.goal));});
+});
+window.addEventListener('message', function(e){
+  if(e.origin !== location.origin || e.source !== window.parent) return;
+  if(!e.data || e.data.type !== 'virtualcoach:set-training-goal' || !G[e.data.goal]) return;
+  st.goal = e.data.goal;
+  [].forEach.call($('goals').children, function(x){
+    x.setAttribute('aria-pressed', String(x.dataset.g === st.goal));
+  });
+});
+function applyTrainingHistory(history){
+  if(!history || !history.rideCount) return;
+  var fields = {
+    weeklyMin:'weeklyMin',
+    longestMin:'longestMin',
+    longestKm:'longestKm',
+    weeklyLoad:'weeklyLoad',
+    maxLoad:'maxLoad',
+    loadDays:'loadDays'
+  };
+  Object.keys(fields).forEach(function(key){
+    var input = $('i-'+key);
+    if(!input) return;
+    var value = history[fields[key]];
+    input.value = value == null ? '' : String(value);
+    input.readOnly = true;
+    input.classList.add('auto-filled');
+  });
+  var loadNote = history.loadSource
+    ? '，负荷也已从上传记录计算'
+    : '；负荷没有可靠来源，计划会按保守强度起步';
+  $('historyHint').textContent = '已根据最近 '+history.windowDays+' 天上传的 '+history.rideCount+' 次骑行自动填入'+loadNote;
+  $('historyHint').classList.add('auto');
+}
+window.addEventListener('message', function(e){
+  if(e.origin !== location.origin || e.source !== window.parent) return;
+  if(!e.data || e.data.type !== 'virtualcoach:set-training-history') return;
+  applyTrainingHistory(e.data.history);
 });
 $('days').innerHTML = [1,2,3,4,5,6,0].map(function(d){
   return '<button class="day-chip" data-d="'+d+'" aria-pressed="'+(st.days.indexOf(d)>=0)+'">'+
@@ -4737,7 +4764,6 @@ function barHTML(c){
     return '<i title="'+esc(segName(s))+' · '+dur(s[1])+'" style="width:'+(s[1]/c.m*100)+'%;background:var('+(ZC[s[2]]||'--z1')+')"></i>';
   }).join('')+'</div>';
 }
-function adjustmentOf(wi,idx){ return OVERRIDE[wi+':'+idx] || null; }
 function calendarBarHTML(c){
   return '<span class="cal-bar">'+c.sg.map(function(s){
     return '<i style="width:'+(s[1]/c.m*100)+'%;background:var('+(ZC[s[2]]||'--z1')+')"></i>';
@@ -4765,12 +4791,12 @@ function renderCalendar(){
         html+='<div><div class="cal-cell rest'+(pre?' pre':'')+'"><span class="cal-date"><b>'+ (date.getMonth()+1)+'/'+date.getDate() +'</b><em>'+E.DOW[date.getDay()]+'</em></span><span class="cal-type">'+(pre?'':'休息')+'</span></div></div>';
         continue;
       }
-      var c=courseOf(w.idx,idx), adj=adjustmentOf(w.idx,idx), excused=!!(adj&&adj.excused), done=!!DONE[w.idx+':'+idx];
-      var cls='cal-cell'+(excused?' excused':'')+(done?' done':'');
+      var c=courseOf(w.idx,idx), done=!!DONE[w.idx+':'+idx];
+      var cls='cal-cell'+(done?' done':'');
       html+='<div><button class="'+cls+'" data-w="'+w.idx+'" data-i="'+idx+'">'+
         '<span class="cal-date"><b>'+ (date.getMonth()+1)+'/'+date.getDate() +'</b><em>'+E.DOW[date.getDay()]+'</em></span>'+
-        '<span class="cal-type">'+(excused?'请假':esc(dispName(c)))+'</span>'+
-        '<span class="cal-meta">'+(excused?'已请假':hm(c.m)+' · TSS '+Math.round(c.ts))+'</span>'+calendarBarHTML(c)+
+        '<span class="cal-type">'+esc(dispName(c))+'</span>'+
+        '<span class="cal-meta">'+(hm(c.m)+' · TSS '+Math.round(c.ts))+'</span>'+calendarBarHTML(c)+
       '</button></div>';
     }
   });
@@ -4820,11 +4846,11 @@ function render(){
       /* 开始日之前的日子不是休息日，是还没进入计划——整行不画 */
       if(idx<0){ if(ds < s0) continue;
                  cards.push('<div class="rest">'+dbox+'<div>休息</div></div>'); continue; }
-      var it=w.items[idx], c=courseOf(w.idx,idx), f=feelOf(c), done=DONE[w.idx+':'+idx], adj=adjustmentOf(w.idx,idx), excused=!!(adj&&adj.excused);
+      var it=w.items[idx], c=courseOf(w.idx,idx), f=feelOf(c), done=DONE[w.idx+':'+idx];
       mins+=c.m; tss+=c.ts;
-      cards.push('<div class="card'+(done?' done':'')+(excused?' excused':'')+'">'+
+      cards.push('<div class="card'+(done?' done':'')+'">'+
         '<button class="card-btn" data-w="'+w.idx+'" data-i="'+idx+'">'+dbox+
-          '<span class="cmain"><b>'+esc(excused?'请假 · '+dispName(c):dispName(c))+(done?'<span class="tag">已完成</span>':'')+(excused?'<span class="tag">已请假</span>':'')+'</b>'+
+          '<span class="cmain"><b>'+esc(dispName(c))+(done?'<span class="tag">已完成</span>':'')+'</b>'+
           '<span>'+hm(c.m)+' · '+TYPE_PLAIN[c.t]+' · TSS '+Math.round(c.ts)+'</span></span>'+
           '<span class="feel f'+c.zmax+'">'+f.s+'</span>'+
         '</button>'+barHTML(c)+'</div>');
@@ -4927,7 +4953,6 @@ function openSheet(wi, idx){
       '<button class="ghost" data-a="switch">换一节课</button>'+
       (p.input.venue!=='indoor'?'<button class="ghost" data-a="indoor">换成室内</button>':'')+
       (other.length?'<button class="ghost" data-a="swap">和别的一天换</button>':'')+
-      '<button class="ghost" data-a="skip">这次请假</button>'+
       (OVERRIDE[wi+':'+idx]?'<button class="ghost" data-a="reset">还原</button>':'')+
     '</div>'+
     (OVERRIDE[wi+':'+idx]?'<div class="note">已调整过这节课。</div>':'')+
@@ -4954,8 +4979,6 @@ function openSheet(wi, idx){
     }
     if(a==='done'){ if(done) delete DONE[wi+':'+idx]; else DONE[wi+':'+idx]=1; }
     else if(a==='reset'){ delete OVERRIDE[wi+':'+idx]; }
-    else if(a==='skip'){ DONE[wi+':'+idx]=0; delete OVERRIDE[wi+':'+idx];
-      OVERRIDE[wi+':'+idx]={course:c, note:'请假', excused:true}; }
     else if(a==='easier'||a==='indoor'||a==='switch'){
       var r=E.adjust(Object.assign({},it,{course:c}), a==='easier'?'easier':(a==='indoor'?'indoor':'switch'), p);
       if(r&&r.course) OVERRIDE[wi+':'+idx]={course:r.course, note:r.note};
@@ -4968,7 +4991,7 @@ function openSheet(wi, idx){
       if(oa) OVERRIDE[wi+':'+idx]=oa; if(ob) OVERRIDE[wi+':'+j]=ob;
     }
     render();
-    if(a==='swap'||a==='skip') $('modal').innerHTML=''; else openSheet(wi, idx);
+    if(a==='swap') $('modal').innerHTML=''; else openSheet(wi, idx);
   });
   document.addEventListener('keydown', function k(ev){
     if(ev.key==='Escape'){ $('modal').innerHTML=''; document.removeEventListener('keydown',k); } });
