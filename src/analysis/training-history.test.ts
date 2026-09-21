@@ -39,4 +39,16 @@ describe('buildTrainingHistorySummary', () => {
     expect(history.loadDays).toBe(2)
     expect(history.loadSource).toBe('device')
   })
+
+  it('can use the same 90-day history window as the capability profile', () => {
+    const asOf = Date.parse('2026-09-21T12:00:00Z')
+    const history = buildTrainingHistorySummary([
+      makeRun('july-ride', Date.parse('2026-07-02T08:00:00Z'), 80, 20),
+      makeRun('august-ride', Date.parse('2026-08-06T08:00:00Z'), 95, 24)
+    ], { asOf, windowDays: 90 })
+
+    expect(history.rideCount).toBe(2)
+    expect(history.windowDays).toBe(90)
+    expect(history.sourceFiles).toEqual(['july-ride.fit', 'august-ride.fit'])
+  })
 })

@@ -19,7 +19,7 @@ import { parseGpxFile } from '@runs/gpx'
 import { parseFitFile } from '@runs/fit'
 import { parseJsonFile } from '@runs/json'
 import { activityTypeLabel } from '@runs/activity'
-import { buildCapabilityProfile, type CapabilityProfile, type TrainingGoalId } from '@/analysis/capability'
+import { buildCapabilityProfile, CAPABILITY_WINDOW_DAYS, type CapabilityProfile, type TrainingGoalId } from '@/analysis/capability'
 import { buildTrainingHistorySummary, type TrainingHistorySummary } from '@/analysis/training-history'
 import { TerrainCard } from './TerrainCard'
 import { StartPointCard } from './StartPointCard'
@@ -167,7 +167,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const [homeBackground, setHomeBackground] = useState<HomeBackground>(loadHomeBackground())
   const runs = useRef<Map<string, Run>>(new Map())
   const trainingHistory = useMemo<TrainingHistorySummary>(() =>
-    buildTrainingHistorySummary(Array.from(runs.current.values())),
+    buildTrainingHistorySummary(Array.from(runs.current.values()), { windowDays: CAPABILITY_WINDOW_DAYS }),
     [run, capabilityProfile]
   )
 
