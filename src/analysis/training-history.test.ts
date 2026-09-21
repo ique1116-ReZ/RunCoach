@@ -51,4 +51,16 @@ describe('buildTrainingHistorySummary', () => {
     expect(history.windowDays).toBe(90)
     expect(history.sourceFiles).toEqual(['july-ride.fit', 'august-ride.fit'])
   })
+
+  it('can include every imported ride when the plan is opened from a batch', () => {
+    const asOf = Date.parse('2026-08-06T08:00:00Z')
+    const history = buildTrainingHistorySummary([
+      makeRun('april-ride', Date.parse('2026-04-20T08:00:00Z'), 60, 18),
+      makeRun('july-ride', Date.parse('2026-07-02T08:00:00Z'), 80, 20),
+      makeRun('august-ride', asOf, 95, 24)
+    ], { asOf, windowDays: 109, includeAllImported: true })
+
+    expect(history.rideCount).toBe(3)
+    expect(history.sourceFiles).toEqual(['april-ride.fit', 'july-ride.fit', 'august-ride.fit'])
+  })
 })

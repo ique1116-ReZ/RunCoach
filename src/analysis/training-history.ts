@@ -16,6 +16,12 @@ export type TrainingHistorySummary = {
   loadSource: 'device' | 'power-with-ftp' | null
 }
 
+export type TrainingHistoryOptions = {
+  asOf?: number
+  windowDays?: number
+  includeAllImported?: boolean
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000
 const finite = (value: number | undefined): value is number => value !== undefined && Number.isFinite(value)
 const round = (value: number | undefined, decimals = 1) =>
@@ -69,14 +75,18 @@ const powerLoad = (run: Run) => {
 
 export const buildTrainingHistorySummary = (
   runs: Run[],
-  options: { asOf?: number; windowDays?: number } = {}
+  options: TrainingHistoryOptions = {}
 ): TrainingHistorySummary => {
   const asOfMs = options.asOf ?? Date.now()
   const windowDays = options.windowDays ?? TRAINING_HISTORY_WINDOW_DAYS
   const windowStart = asOfMs - windowDays * DAY_MS
   const eligible = runs.filter(run => {
     const start = run.points[0]?.time
-    return isRide(run) && start !== undefined && start >= windowStart && start <= asOfMs
+    return isRide(run) && start !== undefined && (
+      options.includeAllImported
+        ? true
+        : start >= windowStart && start <= asOfMs
+    )
   })
   const durations = eligible
     .map(run => runDurationMs(run))

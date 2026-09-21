@@ -19,8 +19,8 @@ import { parseGpxFile } from '@runs/gpx'
 import { parseFitFile } from '@runs/fit'
 import { parseJsonFile } from '@runs/json'
 import { activityTypeLabel } from '@runs/activity'
-import { buildCapabilityProfile, CAPABILITY_WINDOW_DAYS, type CapabilityProfile, type TrainingGoalId } from '@/analysis/capability'
-import { buildTrainingHistorySummary, type TrainingHistorySummary } from '@/analysis/training-history'
+import { buildCapabilityProfile, type CapabilityProfile, type TrainingGoalId } from '@/analysis/capability'
+import { buildTrainingHistorySummary, TRAINING_HISTORY_WINDOW_DAYS, type TrainingHistorySummary } from '@/analysis/training-history'
 import { TerrainCard } from './TerrainCard'
 import { StartPointCard } from './StartPointCard'
 import { PinConfirm } from './PinConfirm'
@@ -166,10 +166,21 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const [openHeartRateSettingsRequest, setOpenHeartRateSettingsRequest] = useState(0)
   const [homeBackground, setHomeBackground] = useState<HomeBackground>(loadHomeBackground())
   const runs = useRef<Map<string, Run>>(new Map())
-  const trainingHistory = useMemo<TrainingHistorySummary>(() =>
-    buildTrainingHistorySummary(Array.from(runs.current.values()), { windowDays: CAPABILITY_WINDOW_DAYS }),
-    [run, capabilityProfile]
-  )
+  const trainingHistory = useMemo<TrainingHistorySummary>(() => {
+    const importedRuns = Array.from(runs.current.values())
+    const activityTimes = importedRuns
+      .filter(item => item.activityType === 'cycling' || item.activityType === 'unknown')
+      .map(item => item.points[0]?.time)
+      .filter((time): time is number => time !== undefined && Number.isFinite(time))
+    const asOf = activityTimes.length ? Math.max(...activityTimes) : Date.now()
+    const first = activityTimes.length ? Math.min(...activityTimes) : asOf
+    const spanDays = Math.max(1, Math.ceil((asOf - first) / (24 * 60 * 60 * 1000)) + 1)
+    return buildTrainingHistorySummary(importedRuns, {
+      asOf,
+      windowDays: Math.max(TRAINING_HISTORY_WINDOW_DAYS, spanDays),
+      includeAllImported: true
+    })
+  }, [run, capabilityProfile])
 
   // 引导卡片 / 选点状态
   const [terrainResolve, setTerrainResolve] = useState<((t: 'trail' | 'road' | null) => void) | null>(null)
