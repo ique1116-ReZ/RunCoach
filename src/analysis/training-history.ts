@@ -19,7 +19,6 @@ export type TrainingHistorySummary = {
 export type TrainingHistoryOptions = {
   asOf?: number
   windowDays?: number
-  includeAllImported?: boolean
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -82,11 +81,7 @@ export const buildTrainingHistorySummary = (
   const windowStart = asOfMs - windowDays * DAY_MS
   const eligible = runs.filter(run => {
     const start = run.points[0]?.time
-    return isRide(run) && start !== undefined && (
-      options.includeAllImported
-        ? true
-        : start >= windowStart && start <= asOfMs
-    )
+    return isRide(run) && start !== undefined && start >= windowStart && start <= asOfMs
   })
   const durations = eligible
     .map(run => runDurationMs(run))
