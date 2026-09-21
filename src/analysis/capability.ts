@@ -87,6 +87,8 @@ type TimedInterval = {
 
 type AnchorId = Exclude<CapabilityMetricId, 'climb'>
 
+const MAX_CONTINUOUS_GAP_MS = 30 * 1000
+
 const axisDefinitions: Array<Pick<CapabilityAxis, 'id' | 'label' | 'description'>> = [
   { id: 'sprint', label: '冲刺', description: '看看你在短时间里能骑多快' },
   { id: 'cruise', label: '巡航', description: '看看你能把较快速度保持多久' },
@@ -184,9 +186,10 @@ const splitContiguous = (intervals: TimedInterval[]) => {
   let previous: TimedInterval | undefined
   for (const interval of intervals) {
     const gap = previous ? interval.startTime - previous.endTime : 0
-    // Any omitted interval represents a pause, an invalid speed sample, or a
-    // data gap. Do not silently bridge it when building a capability window.
-    if (previous && gap > 0) {
+    // FIT/GPS records can miss a few samples while the activity is still
+    // moving. Keep short gaps inside the same window, but do not bridge a
+    // real pause or a longer data gap.
+    if (previous && gap > MAX_CONTINUOUS_GAP_MS) {
       if (current.length) segments.push(current)
       current = []
     }
@@ -220,7 +223,9 @@ const bestSpeedWindow = (run: Run, targetSeconds: number): SpeedWindow | undefin
       const distanceM = cumulativeDistance[endIndex + 1] - (cumulativeDistance[startIndex] + first.distanceM * fraction)
       if (distanceM <= 0) continue
       const candidate: SpeedWindow = {
-        value: distanceM / (targetSeconds / 3600),
+        // distanceM is in meters; speed-window values are displayed and
+        // scored in km/h. Convert before mapping against the km/h anchors.
+        value: (distanceM / 1000) / (targetSeconds / 3600),
         coverage: 1,
         startTime: first.startTime + offset * 1000,
         endTime: segment[endIndex].endTime,

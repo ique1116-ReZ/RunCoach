@@ -2,9 +2,15 @@ import { describe, expect, it } from 'vitest'
 import type { Run, TrackPoint } from '@runs/types'
 import { buildCapabilityProfile, buildCapabilityTrainingDirection } from './capability'
 
-const makeRide = (id: string, startTime: number, hours: number, speedKmh = 30, withElevation = true): Run => {
+const makeRide = (
+  id: string,
+  startTime: number,
+  hours: number,
+  speedKmh = 30,
+  withElevation = true,
+  stepSeconds = 30
+): Run => {
   const points: TrackPoint[] = []
-  const stepSeconds = 30
   const count = Math.floor((hours * 3600) / stepSeconds)
   let distanceM = 0
   for (let index = 0; index <= count; index += 1) {
@@ -36,6 +42,29 @@ const makeRide = (id: string, startTime: number, hours: number, speedKmh = 30, w
 }
 
 describe('buildCapabilityProfile', () => {
+  it('reports speed-window values in km/h rather than meters per hour', () => {
+    const asOf = Date.parse('2026-09-17T12:00:00Z')
+    const profile = buildCapabilityProfile([
+      makeRide('speed-unit', Date.parse('2026-09-17T07:00:00Z'), 0.5, 30, false)
+    ], { asOf })
+    const sprint = profile.axes.find(axis => axis.id === 'sprint')
+    const thirtySecond = sprint?.measurements.find(measurement => measurement.id === '30s')
+
+    expect(thirtySecond?.value).toBeCloseTo(30, 1)
+    expect(thirtySecond?.value).toBeLessThan(100)
+  })
+
+  it('keeps short GPS sample gaps inside a continuous speed window', () => {
+    const ride = makeRide('sample-gap', Date.parse('2026-09-17T07:00:00Z'), 0.5, 30, false, 10)
+    ride.points.splice(20, 1)
+    const profile = buildCapabilityProfile([ride], { asOf: Date.parse('2026-09-17T12:00:00Z') })
+    const cruise = profile.axes.find(axis => axis.id === 'cruise')
+    const twentyMinute = cruise?.measurements.find(measurement => measurement.id === '20m')
+
+    expect(twentyMinute?.value).toBeCloseTo(30, 1)
+    expect(cruise?.score).toBeDefined()
+  })
+
   it('maps continuous ride facts to all five axes', () => {
     const asOf = Date.parse('2026-09-17T12:00:00Z')
     const profile = buildCapabilityProfile([
@@ -62,7 +91,7 @@ describe('buildCapabilityProfile', () => {
   it('selects one highest-priority training plan goal', () => {
     const asOf = Date.parse('2026-09-17T12:00:00Z')
     const profile = buildCapabilityProfile([
-      makeRide('short-ride', Date.parse('2026-09-17T07:00:00Z'), 2.5)
+      makeRide('short-ride', Date.parse('2026-09-17T07:00:00Z'), 2.5, 70)
     ], { asOf })
     const direction = buildCapabilityTrainingDirection(profile)
 
