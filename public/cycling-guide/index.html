@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#071522" />
+  <meta name="description" content="可交互的 3D 骑行科普：按身高调坐垫、看踩踏发力、找前脚掌位置、按部位筛查疼痛，并附胸椎灵活度与下肢力量训练。" />
+  <title>RimeLynx 实验室 · 骑行姿势</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23071522'/%3E%3Ccircle cx='16' cy='43' r='11' fill='none' stroke='%23c9f238' stroke-width='4'/%3E%3Ccircle cx='48' cy='43' r='11' fill='none' stroke='%23c9f238' stroke-width='4'/%3E%3Cpath d='M16 43 28 20l12 23H16l14-15m10 15 8-20h-8' fill='none' stroke='%23eaf4ff' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./style.css?v=20260924-3" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><img src="./assets/rimelynx-logo.png" alt="RimeLynx" width="685" height="70" /><span>实验室</span></div>
+      <nav class="topnav" aria-label="章节">
+        <a href="#lab" data-goto="fit">调车</a><a href="#lab" data-goto="power">发力</a><a href="#lab" data-goto="foot">脚掌</a><a href="#lab" data-goto="pain">疼痛</a><a href="#training">训练</a>
+      </nav>
+      <a class="back-home" href="../" aria-label="返回 RunCoach 首页"><span aria-hidden="true">←</span> 返回首页</a>
+      <span class="top-tag">交互科普 · 非诊断</span>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="intro-copy" id="page-title">输入身高，3D 骑手会按你的比例坐上车。跟着五步走：调坐垫 → 看发力 → 找脚掌位置 → 筛查疼痛 → 针对性训练。</p>
+      </section>
+
+      <ol class="steps" role="tablist" aria-label="实验室步骤">
+        <li><button type="button" role="tab" data-chapter="fit" aria-selected="true"><b>01</b>按身高调车</button></li>
+        <li><button type="button" role="tab" data-chapter="power" aria-selected="false"><b>02</b>踩踏发力</button></li>
+        <li><button type="button" role="tab" data-chapter="foot" aria-selected="false"><b>03</b>前脚掌位置</button></li>
+        <li><button type="button" role="tab" data-chapter="pain" aria-selected="false"><b>04</b>疼痛筛查</button></li>
+        <li><a href="#training"><b>05</b>针对性训练</a></li>
+      </ol>
+
+      <section id="lab" class="workbench" aria-label="骑行姿势 3D 实验室">
+        <div class="scene-card">
+          <div class="scene-stage" id="scene-stage">
+            <div id="scene" role="img" aria-label="可旋转的 3D 公路车与骑手模型"></div>
+            <div class="scene-gradient"></div>
+            <div class="loading" id="loading"><span></span>正在加载 3D 模型…</div>
+            <div id="scene-labels" aria-hidden="true"></div>
+            <div class="angle-badge" id="angle-badge">
+              <div><span>膝内角</span><strong id="knee-angle">—</strong></div>
+              <div><span>肘内角</span><strong id="elbow-angle">—</strong></div>
+              <div><span>背角</span><strong id="back-angle">—</strong></div>
+            </div>
+            <svg class="dial" id="dial" viewBox="-60 -60 120 120" aria-hidden="true"></svg>
+            <div class="scene-controls">
+              <button type="button" id="com-toggle" aria-pressed="false">重心</button>
+              <button type="button" id="skeleton-toggle" aria-pressed="true">骨骼线</button>
+              <button type="button" id="reset-view">重置视角</button>
+            </div>
+            <p class="scene-hint">拖动旋转 · 滚轮缩放</p>
+          </div>
+          <div class="crank-bar">
+            <button type="button" id="play-toggle" class="play" aria-pressed="true" aria-label="暂停">❚❚</button>
+            <button type="button" id="slow-toggle" aria-pressed="false">慢放</button>
+            <label class="crank-scrub"><span>曲柄位置</span>
+              <input id="crank" type="range" min="0" max="359" step="1" value="90" aria-label="曲柄角度，0 度为上死点" />
+              <span class="crank-ticks" aria-hidden="true"><i>12 点</i><i>3 点</i><i>6 点</i><i>9 点</i><i>12 点</i></span>
+            </label>
+            <output id="crank-value">3 点钟 · 90°</output>
+            <div class="nudge"><button type="button" data-nudge="-15" aria-label="后退 15 度">−15°</button><button type="button" data-nudge="15" aria-label="前进 15 度">+15°</button></div>
+          </div>
+        </div>
+
+        <aside class="insight-card" aria-live="polite">
+          <!-- 01 调车 -->
+          <div class="chapter" data-panel="fit">
+            <span class="section-index">01 / 按身高调车</span>
+            <h2>先让坐垫高度适合你</h2>
+            <p class="lead">坐垫高度决定膝盖在最低点伸得多直。常用参考：踩到最低点时膝内角约 <b>140°–150°</b>。</p>
+            <form class="body-form" id="body-form">
+              <label><em>身高</em><span><input id="height" type="number" inputmode="decimal" min="140" max="210" step="1" value="175" required /> cm</span></label>
+              <label><em>裆高 <small>可选</small></em><span><input id="inseam" type="number" inputmode="decimal" min="60" max="105" step="0.5" placeholder="不填按比例估" /> cm</span></label>
+              <button type="submit">按我的身材调车</button>
+            </form>
+            <details class="howto"><summary>裆高怎么量？</summary><p>光脚背靠墙站直，双脚与肩同宽。把一本硬皮书书脊朝上夹在两腿间，向上顶到有压力，量书脊上沿到地面的距离。量 2–3 次取平均。</p></details>
+            <div class="result-grid">
+              <button type="button" class="rec-card" id="saddle-rec-card" aria-pressed="false"><span>建议座高（中轴→坐垫顶）</span><strong id="saddle-rec">—</strong><small>按最低点膝内角 145° 反推 · <em>点击在模型上显示</em></small></button>
+              <div><span>公式参考 裆高 × 0.883</span><strong id="saddle-formula">—</strong><small>LeMond 经验公式，差 1–2 cm 属正常</small></div>
+            </div>
+            <div class="fine-tune">
+              <h3>再动手试试</h3>
+              <label>坐垫高度 <output id="saddle-value">0 mm</output><input id="saddle" type="range" min="-40" max="40" value="0" step="5" /><span class="range-ends"><span>更低</span><span>更高</span></span></label>
+              <label>坐垫前后 <output id="setback-value">0 mm</output><input id="setback" type="range" min="-30" max="30" value="0" step="5" /><span class="range-ends"><span>更靠前</span><span>更靠后</span></span></label>
+              <div class="kops" id="kops"><p id="kops-text"></p></div>
+              <label>车把前后 <output id="reach-value">0 mm</output><input id="reach" type="range" min="-40" max="40" value="0" step="5" /><span class="range-ends"><span>更近</span><span>更远</span></span></label>
+              <label>车把高度 <output id="bar-value">0 mm</output><input id="bar" type="range" min="-40" max="40" value="0" step="5" /><span class="range-ends"><span>更低</span><span>更高</span></span></label>
+              <button type="button" class="ghost" id="reset-fit">恢复建议值</button>
+            </div>
+            <p class="fit-note" id="fit-note"></p>
+          </div>
+
+          <!-- 02 发力 -->
+          <div class="chapter" data-panel="power" hidden>
+            <span class="section-index">02 / 踩踏发力</span>
+            <h2>一圈里，谁在出力？</h2>
+            <p class="lead">亮银色箭头是推动曲柄转动的<b>有效力</b>，暗灰色是脚对踏板的<b>总力</b>。两者差得越多，浪费越多。</p>
+            <div class="phase-card"><span id="phase-clock">3 点钟</span><h3 id="phase-name">—</h3><p id="phase-text"></p></div>
+            <div class="power-grid">
+              <div class="muscle-list" id="muscle-list"></div>
+              <figure class="pressure small"><canvas id="pressure-power"></canvas><figcaption>足底压力（右脚）</figcaption></figure>
+            </div>
+            <label class="cadence">踏频 <output id="cadence-value">80 rpm</output><input id="cadence" type="range" min="40" max="110" step="5" value="80" /></label>
+            <p class="fit-note">肌肉时序为文献中坐姿踩踏的典型模式，个体差异较大；“上拉”在大多数骑行中只是减少回程阻力，不必刻意去拉。</p>
+          </div>
+
+          <!-- 03 前脚掌 -->
+          <div class="chapter" data-panel="foot" hidden>
+            <span class="section-index">03 / 前脚掌位置</span>
+            <h2>踏板轴该在脚底哪里？</h2>
+            <p class="lead">多数人从<b>第一跖骨头（大脚趾根部的骨突）落在踏板轴正上方、或其后 0–1 cm</b> 开始调。</p>
+            <label class="foot-slider">跖骨头相对踏板轴 <output id="ball-value">0 mm</output><input id="ball" type="range" min="-20" max="20" step="2" value="0" /><span class="range-ends"><span>踩在脚尖</span><span>踩在足弓</span></span></label>
+            <div class="foot-pressure">
+              <figure class="pressure"><canvas id="pressure-foot"></canvas><figcaption>右脚足底压力示意 · 十字为压力中心</figcaption></figure>
+              <div class="foot-state" id="foot-state"></div>
+            </div>
+            <div class="cause-box">
+              <h4>怎么找跖骨头</h4>
+              <div class="cause-item"><strong>摸骨突</strong><p>光脚，摸大脚趾根部最突出的骨头，再摸小脚趾根部的骨头；两点连线就是前脚掌最宽处。</p></div>
+              <div class="cause-item"><strong>锁片对位</strong><p>穿上鞋在鞋侧标出该连线，锁片中心标记对齐它；每次只挪 2–3 mm，短骑复测。</p></div>
+              <div class="cause-item"><strong>和疼痛的关系</strong><p>前脚掌灼热、脚趾麻，常与压力集中在跖骨头有关，可先看疼痛筛查里的“脚 / 前脚掌”。</p></div>
+            </div>
+          </div>
+
+          <!-- 04 疼痛 -->
+          <div class="chapter" data-panel="pain" hidden>
+            <span class="section-index">04 / 疼痛筛查</span>
+            <h2>哪里不舒服？</h2>
+            <p class="lead">点模型上的亮点，或从下面选部位。</p>
+            <div class="zone-list" id="zone-list" role="group" aria-label="选择疼痛部位"></div>
+            <div class="detail" id="detail"></div>
+          </div>
+        </aside>
+      </section>
+
+      <section id="training" class="training" aria-labelledby="training-title">
+        <div class="training-head">
+          <div><span class="section-index">05 / 针对性训练</span><h2 id="training-title">车设调好之后，身体也要跟上</h2></div>
+          <p>灵活度解决“趴不下去、含胸耸肩”；下肢力量让发力更稳、膝盖轨迹更好；核心与上背撑住前倾的身体。每周 2–3 次，出现疼痛就停下。</p>
+        </div>
+        <div class="training-filter" role="group" aria-label="训练类别">
+          <button type="button" class="chip active" data-group="all" aria-pressed="true">全部</button>
+          <button type="button" class="chip" data-group="mobility" aria-pressed="false">灵活度</button>
+          <button type="button" class="chip" data-group="strength" aria-pressed="false">下肢力量</button>
+          <button type="button" class="chip" data-group="core" aria-pressed="false">核心与上背</button>
+        </div>
+        <div class="training-grid" id="training-grid"></div>
+      </section>
+
+      <section class="safety" aria-labelledby="safety-title">
+        <div class="safety-icon">!</div><div><span class="section-index">重要提醒</span><h2 id="safety-title">这些情况先停骑，再评估</h2><p>突发或剧烈疼痛、明显肿胀或关节卡顿、无力或握力下降、持续不退的麻木、会阴麻木伴排尿排便变化，建议尽快就医；后两项尤其需要及时评估。本页数值只用于理解原理，不能替代专业 Bike Fit。</p></div>
+      </section>
+    </main>
+    <footer><span>RimeLynx 实验室</span><span>科普演示 · 内容不能替代医疗诊断或专业 Bike Fit</span><small>骑手模型：<a href="https://www.mixamo.com/" target="_blank" rel="noopener noreferrer">Adobe Mixamo · Passive Marker Man</a> · 公路车模型：<a href="https://github.com/MirageYM/3DModels" target="_blank" rel="noopener noreferrer">MirageYM</a>（<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>，已调整材质与比例） · 肌电时序参考 Hug &amp; Dorel, 2009</small></footer>
+  </div>
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js","./app.js":"./app.js?v=20260924-3","./cycling.js":"./cycling.js?v=20260924-3","./rider.js":"./rider.js?v=20260924-3","./bike.js":"./bike.js?v=20260924-3","./content.js":"./content.js?v=20260924-3","./pressure.js":"./pressure.js?v=20260924-3"}}</script>
+  <script type="module" src="./app.js?v=20260924-3"></script>
+</body>
+</html>

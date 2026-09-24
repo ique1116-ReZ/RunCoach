@@ -608,6 +608,38 @@ textarea {
   outline: none;
 }
 
+.cycling-guide-nav {
+  min-width: 132px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid rgba(120, 233, 255, 0.4);
+  border-radius: 10px;
+  background: rgba(7, 10, 14, 0.88);
+  backdrop-filter: var(--panel-blur);
+  color: #c4f0fa;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 150ms, background 150ms, color 150ms;
+}
+
+.cycling-guide-nav span:first-child {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.cycling-guide-nav:hover,
+.cycling-guide-nav:focus-visible {
+  border-color: #78e9ff;
+  background: rgba(120, 233, 255, 0.13);
+  color: #fff;
+  outline: none;
+}
+
 /* ── Exercise library ── */
 .workout-library-page {
   width: 100%;
@@ -4194,6 +4226,24 @@ input[type="range"] {
   .top-right {
     top: 16px;
     right: 16px;
+  }
+
+  .top-right {
+    gap: 8px;
+  }
+
+  .workout-library-nav {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .cycling-guide-nav {
+    min-width: 96px;
+    padding: 0 9px;
+    gap: 5px;
+    font-size: 11px;
   }
 
   .gear-panel {

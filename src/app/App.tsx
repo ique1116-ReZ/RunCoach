@@ -647,6 +647,14 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       )}
 
       <div className="top-right">
+        <a
+          className="cycling-guide-nav"
+          href={`${import.meta.env.BASE_URL}cycling-guide/index.html`}
+          aria-label="打开骑行姿势 3D 科普"
+        >
+          <span aria-hidden="true">🚴</span>
+          <span>3D 骑行科普</span>
+        </a>
         <button type="button" className="workout-library-nav" onClick={onOpenWorkoutLibrary}>
           <span aria-hidden="true">▦</span>
           力量动作库
