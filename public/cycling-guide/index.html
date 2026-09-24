@@ -7,7 +7,7 @@
   <meta name="description" content="可交互的 3D 骑行科普：按身高调坐垫、看踩踏发力、找前脚掌位置、按部位筛查疼痛，并附胸椎灵活度与下肢力量训练。" />
   <title>RimeLynx 实验室 · 骑行姿势</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23071522'/%3E%3Ccircle cx='16' cy='43' r='11' fill='none' stroke='%23c9f238' stroke-width='4'/%3E%3Ccircle cx='48' cy='43' r='11' fill='none' stroke='%23c9f238' stroke-width='4'/%3E%3Cpath d='M16 43 28 20l12 23H16l14-15m10 15 8-20h-8' fill='none' stroke='%23eaf4ff' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./style.css?v=20260924-3" />
+  <link rel="stylesheet" href="./style.css?v=20260924-4" />
 </head>
 <body>
   <div class="app-shell">
@@ -111,7 +111,7 @@
           <div class="chapter" data-panel="foot" hidden>
             <span class="section-index">03 / 前脚掌位置</span>
             <h2>踏板轴该在脚底哪里？</h2>
-            <p class="lead">多数人从<b>第一跖骨头（大脚趾根部的骨突）落在踏板轴正上方、或其后 0–1 cm</b> 开始调。</p>
+            <p class="lead">多数人从<b>第一跖骨头（大脚趾根部的骨突）落在踏板轴正上方、或其后 0–1 cm</b> 开始调。拖动锁片位置看压力分布变化，播放或拖动曲柄看模拟踩踏载荷变化。</p>
             <label class="foot-slider">跖骨头相对踏板轴 <output id="ball-value">0 mm</output><input id="ball" type="range" min="-20" max="20" step="2" value="0" /><span class="range-ends"><span>踩在脚尖</span><span>踩在足弓</span></span></label>
             <div class="foot-pressure">
               <figure class="pressure"><canvas id="pressure-foot"></canvas><figcaption>右脚足底压力示意 · 十字为压力中心</figcaption></figure>
@@ -156,7 +156,7 @@
     </main>
     <footer><span>RimeLynx 实验室</span><span>科普演示 · 内容不能替代医疗诊断或专业 Bike Fit</span><small>骑手模型：<a href="https://www.mixamo.com/" target="_blank" rel="noopener noreferrer">Adobe Mixamo · Passive Marker Man</a> · 公路车模型：<a href="https://github.com/MirageYM/3DModels" target="_blank" rel="noopener noreferrer">MirageYM</a>（<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>，已调整材质与比例） · 肌电时序参考 Hug &amp; Dorel, 2009</small></footer>
   </div>
-  <script type="importmap">{"imports":{"three":"./vendor/three.module.js","./app.js":"./app.js?v=20260924-3","./cycling.js":"./cycling.js?v=20260924-3","./rider.js":"./rider.js?v=20260924-3","./bike.js":"./bike.js?v=20260924-3","./content.js":"./content.js?v=20260924-3","./pressure.js":"./pressure.js?v=20260924-3"}}</script>
-  <script type="module" src="./app.js?v=20260924-3"></script>
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js","./app.js":"./app.js?v=20260924-4","./cycling.js":"./cycling.js?v=20260924-4","./rider.js":"./rider.js?v=20260924-4","./bike.js":"./bike.js?v=20260924-4","./content.js":"./content.js?v=20260924-4","./pressure.js":"./pressure.js?v=20260924-4"}}</script>
+  <script type="module" src="./app.js?v=20260924-4"></script>
 </body>
 </html>

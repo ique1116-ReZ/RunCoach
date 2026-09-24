@@ -379,8 +379,8 @@ function applyFit() {
   model.setFit(readFit());
   refreshFitText();
 }
-['saddle', 'setback', 'reach', 'bar'].forEach(id => $('#' + id).addEventListener('input', applyFit));
-$('#reset-fit').addEventListener('click', () => { ['saddle', 'setback', 'reach', 'bar'].forEach(id => { $('#' + id).value = 0; }); applyFit(); });
+['saddle', 'setback', 'reach', 'bar'].forEach(id => $('#' + id).addEventListener('input', () => { applyFit(); renderFootState(); }));
+$('#reset-fit').addEventListener('click', () => { ['saddle', 'setback', 'reach', 'bar'].forEach(id => { $('#' + id).value = 0; }); applyFit(); renderFootState(); });
 
 function applyBody() {
   const height = THREE.MathUtils.clamp(Number($('#height').value) || 175, 140, 210) / 100;
@@ -394,7 +394,7 @@ function applyBody() {
   $('#saddle-formula').nextElementSibling.textContent = inseam ? 'LeMond 经验公式，差 1–2 cm 属正常' : `未填裆高，按身高估 ${Math.round(model.inseam * 100)} cm`;
   refreshFitText();
 }
-$('#body-form').addEventListener('submit', e => { e.preventDefault(); applyBody(); });
+$('#body-form').addEventListener('submit', e => { e.preventDefault(); applyBody(); renderFootState(); });
 
 /* ---------- 02 Power ---------- */
 $('#muscle-list').innerHTML = muscles.map(m => `<div class="muscle" data-muscle="${m.key}"><div><strong>${m.name}</strong><small>${m.role}</small></div><span class="bar"><i></i></span></div>`).join('');
@@ -467,9 +467,25 @@ const pressurePower = new PressureMap($('#pressure-power'));
 const pressureFoot = new PressureMap($('#pressure-foot'));
 function pedalLoad(angle) {
   const { tangential, radial } = pedalForces(angle);
-  return THREE.MathUtils.clamp(Math.hypot(Math.max(tangential, 0), radial) / 1.05, .08, 1);
+  return THREE.MathUtils.clamp(Math.hypot(Math.max(tangential, 0), radial), .08, 1);
 }
 let footSummary = null;
+let footReadoutKey = '';
+
+function updateFootReadout(load) {
+  if (!footSummary) return;
+  const loadPercent = Math.round(load * 100);
+  const pressures = footSummary.regions.map(region => Math.round(region.ratio * load * 100));
+  const key = [loadPercent, ...pressures].join('|');
+  if (key === footReadoutKey) return;
+  footReadoutKey = key;
+  $('#foot-load-value').textContent = `${loadPercent}%`;
+  $('#foot-state').querySelectorAll('.region-bars > div').forEach((row, index) => {
+    const value = pressures[index];
+    row.querySelector('i').style.setProperty('--w', `${Math.min(100, value / 3.5)}%`);
+    row.querySelector('b').textContent = `${value}%`;
+  });
+}
 
 /* ---------- 03 Foot ---------- */
 function footText(ball) {
@@ -489,10 +505,14 @@ function renderFootState() {
   const [title, tone, text] = footText(Number($('#ball').value));
   $('#foot-state').className = `foot-state ${tone}`;
   const ball = Number($('#ball').value) / 1000;
-  footSummary = pressureFoot.draw({ ballAhead: ball, footLength: .26 * model.riderRoot.scale.x, force: 1 });
+  const load = pedalLoad(model.crankAngle);
+  footSummary = pressureFoot.draw({ ballAhead: ball, footLength: .26 * model.riderRoot.scale.x, force: load });
   $('#foot-state').innerHTML = `<strong>${title}</strong><p>${text}</p>
-    <div class="region-bars">${footSummary.regions.map(r => `<div><span>${r.name}压力</span><i style="--w:${Math.min(100, r.ratio / 3.5 * 100)}%"></i><b class="${r.ratio > 1.3 ? 'up' : r.ratio < .8 ? 'down' : ''}">${Math.round(r.ratio * 100)}%</b></div>`).join('')}<small>相对“跖骨头在轴上方”时的压力</small></div>
+    <div class="foot-live-load"><span>当前模拟踏板载荷</span><strong id="foot-load-value">—</strong></div>
+    <div class="region-bars">${footSummary.regions.map(r => `<div><span>${r.name}压力</span><i></i><b class="${r.ratio > 1.3 ? 'up' : r.ratio < .8 ? 'down' : ''}">—</b></div>`).join('')}<small>模型示意：锁片在 0 mm、模拟发力峰值时，各部位分别为 100%；非实测，不能相加。</small></div>
     <span>最低点膝内角 <b>${Math.round(kneeExtension = model.extendedKneeAngle())}°</b>（锁片前后会改变有效腿长）</span>`;
+  footReadoutKey = '';
+  updateFootReadout(load);
 }
 
 /* ---------- 04 Pain ---------- */
@@ -679,7 +699,11 @@ function frame() {
     if (!scrubbing) crankInput.value = Math.round(crank);
     $('#crank-value').textContent = `${clockName(crank)} · ${Math.round(crank)}°`;
     if (chapter === 'power') pressurePower.draw({ ballAhead: model.ballAhead, footLength: .26 * model.riderRoot.scale.x, force: pedalLoad(crank) });
-    if (chapter === 'foot') pressureFoot.draw({ ballAhead: model.ballAhead, footLength: .26 * model.riderRoot.scale.x, force: pedalLoad(crank) });
+    if (chapter === 'foot') {
+      const load = pedalLoad(crank);
+      pressureFoot.draw({ ballAhead: model.ballAhead, footLength: .26 * model.riderRoot.scale.x, force: load });
+      updateFootReadout(load);
+    }
     const { j, knee, elbow, back } = currentAngles();
     const badge = `${Math.round(knee)}|${Math.round(elbow)}|${Math.round(back)}`;
     if (badge !== lastBadge) {
