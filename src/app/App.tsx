@@ -640,8 +640,8 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       <MapView onReady={m => { mapRef.current = m; setMapReady(true) }} onMapClick={onMapClick} picking={picking} />
       <DitherMapBackdrop active={!docked || !mapReady} mode={homeBackground} />
       {!docked && (
-        <div className="home-wordmark" aria-hidden="true">
-          <span>VIRTUAL</span>
+        <div className="home-wordmark" role="img" aria-label={APP_NAME}>
+          <img src={`${import.meta.env.BASE_URL}assets/rimelynx-logo.png`} width="685" height="70" alt="" />
           <span className="home-wordmark-accent">COACH</span>
         </div>
       )}

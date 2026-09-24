@@ -1,2 +1,2 @@
-export const APP_NAME = 'Virtual Coach'
-export const APP_SLUG = 'virtual-coach'
+export const APP_NAME = 'RIMELYNX COACH'
+export const APP_SLUG = 'rimelynx-coach'

@@ -64,30 +64,20 @@ export const ChatDock = ({
             <p className="landing-kicker">{APP_NAME}</p>
             <h1>今天想怎么练？</h1>
           </div>
-          <button className="training-plan-launch" type="button" onClick={onOpenTrainingPlan}>
-            <span className="training-plan-launch-icon" aria-hidden="true">↗</span>
-            <span className="training-plan-launch-copy">
-              <strong>生成骑行训练计划</strong>
-              <small>按目标、时间和设备生成完整 12 周安排</small>
-            </span>
-            <span className="training-plan-launch-arrow" aria-hidden="true">→</span>
-          </button>
-          <button className="training-plan-launch ride-analysis-launch" type="button" onClick={() => analysisFileRef.current?.click()}>
-            <span className="training-plan-launch-icon" aria-hidden="true">⌁</span>
-            <span className="training-plan-launch-copy">
-              <strong>单次骑行数据解析</strong>
-              <small>导入 FIT、GPX 或 JSON，查看数据看板与训练复盘</small>
-            </span>
-            <span className="training-plan-launch-arrow" aria-hidden="true">→</span>
-          </button>
-          <button className="training-plan-launch capability-launch" type="button" onClick={() => batchFileRef.current?.click()}>
-            <span className="training-plan-launch-icon" aria-hidden="true">◈</span>
-            <span className="training-plan-launch-copy">
-              <strong>批量建立能力画像</strong>
-              <small>一次选择多份 FIT / GPX，立即生成五维雷达并让 AI 统一给建议</small>
-            </span>
-            <span className="training-plan-launch-arrow" aria-hidden="true">→</span>
-          </button>
+          <div className="landing-actions" aria-label="骑行训练快捷入口">
+            <button className="training-plan-launch" type="button" onClick={onOpenTrainingPlan} aria-label="生成骑行训练计划" title="按目标、时间和设备生成完整 12 周安排">
+              <span className="training-plan-launch-icon" aria-hidden="true">↗</span>
+              <span className="training-plan-launch-copy"><strong><span className="action-label-full">生成骑行训练计划</span><span className="action-label-short">训练计划</span></strong></span>
+            </button>
+            <button className="training-plan-launch ride-analysis-launch" type="button" onClick={() => analysisFileRef.current?.click()} aria-label="单次骑行数据解析" title="导入 FIT、GPX 或 JSON，查看数据看板与训练复盘">
+              <span className="training-plan-launch-icon" aria-hidden="true">⌁</span>
+              <span className="training-plan-launch-copy"><strong><span className="action-label-full">单次骑行数据解析</span><span className="action-label-short">单次解析</span></strong></span>
+            </button>
+            <button className="training-plan-launch capability-launch" type="button" onClick={() => batchFileRef.current?.click()} aria-label="批量建立能力画像" title="一次选择多份 FIT / GPX，生成五维雷达与 AI 建议">
+              <span className="training-plan-launch-icon" aria-hidden="true">◈</span>
+              <span className="training-plan-launch-copy"><strong><span className="action-label-full">批量建立能力画像</span><span className="action-label-short">能力画像</span></strong></span>
+            </button>
+          </div>
           <input
             ref={analysisFileRef}
             type="file"

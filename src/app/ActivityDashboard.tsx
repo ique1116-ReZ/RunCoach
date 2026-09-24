@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Run } from '@runs/types'
 import { activityTypeLabel } from '@runs/activity'
 import { buildDashboardData, dashboardToCsv, type DashboardData, type DashboardSample } from '@/analysis/dashboard'
+import { APP_NAME, APP_SLUG } from './brand'
 
 type ChartKey = 'speedKmh' | 'heartRate' | 'power' | 'cadence' | 'elevation'
 
@@ -142,7 +143,7 @@ const exportDashboardPng = (data: DashboardData, metric: ChartDefinition) => {
   context.fillRect(0, 0, canvas.width, canvas.height)
   context.fillStyle = '#f1f5f7'
   context.font = '700 44px -apple-system, BlinkMacSystemFont, sans-serif'
-  context.fillText('Virtual Coach', 80, 88)
+  context.fillText(APP_NAME, 80, 88)
   context.font = '700 34px -apple-system, BlinkMacSystemFont, sans-serif'
   context.fillText(data.name, 80, 148)
   context.fillStyle = '#9ca8b2'
@@ -184,13 +185,13 @@ const exportDashboardPng = (data: DashboardData, metric: ChartDefinition) => {
   context.fillText('0 km', 120, 905)
   context.fillText(`${numberText(data.totalDistanceKm, 2)} km`, 1450, 905)
 
-  const footer = '本看板由 Virtual Coach 在本地生成 · 原始数据未上传'
+  const footer = `本看板由 ${APP_NAME} 在本地生成 · 原始数据未上传`
   context.fillStyle = '#82909c'
   context.font = '18px -apple-system, BlinkMacSystemFont, sans-serif'
   context.fillText(footer, 80, 1030)
 
   canvas.toBlob(blob => {
-    if (blob) downloadBlob(blob, `${data.name || 'activity'}-virtual-coach-dashboard.png`)
+    if (blob) downloadBlob(blob, `${data.name || 'activity'}-${APP_SLUG}-dashboard.png`)
   }, 'image/png')
   return true
 }
@@ -235,7 +236,7 @@ export const ActivityDashboard = ({ run, onClose }: { run: Run; onClose: () => v
   }
 
   const handleCsv = () => {
-    downloadBlob(new Blob([dashboardToCsv(run)], { type: 'text/csv;charset=utf-8' }), `${data.name || 'activity'}-virtual-coach-data.csv`)
+    downloadBlob(new Blob([dashboardToCsv(run)], { type: 'text/csv;charset=utf-8' }), `${data.name || 'activity'}-${APP_SLUG}-data.csv`)
     notifyExport('CSV 数据已导出')
   }
 
@@ -260,7 +261,7 @@ export const ActivityDashboard = ({ run, onClose }: { run: Run; onClose: () => v
       <section className="dashboard-panel" role="dialog" aria-modal="true" aria-labelledby="dashboard-title">
         <header className="dashboard-head">
           <div className="dashboard-title-block">
-            <div className="dashboard-kicker">Virtual Coach / 数据看板</div>
+            <div className="dashboard-kicker">{APP_NAME} / 数据看板</div>
             <h2 id="dashboard-title">{data.name}</h2>
             <p>{activityTypeLabel(data.activityType)} · {data.sourcePath}</p>
           </div>

@@ -1,5 +1,5 @@
 /* ============================================================
-   Virtual Coach — Map-shell stylesheet
+   RIMELYNX COACH — Map-shell stylesheet
    Rules: NO box-shadow anywhere; flat 1px solid borders only.
    Dark glass panels over full-bleed map.
    ============================================================ */
@@ -297,20 +297,29 @@ textarea {
   pointer-events: none;
   animation: logo-in 420ms ease-out;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
-  gap: 0.32em;
+  gap: clamp(10px, 1.4vw, 20px);
   color: #f1f5f7;
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 72px;
+  font-size: clamp(26px, 5.2vw, 68px);
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
   text-shadow: 0 0 18px rgba(255, 255, 255, 0.12);
 }
 
+.home-wordmark img {
+  display: block;
+  width: 68%;
+  height: auto;
+  flex: none;
+  filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.12));
+}
+
 .home-wordmark-accent {
   color: #ef4444;
+  letter-spacing: 0.02em;
 }
 
 /* ── Training-plan entry and embedded workspace ── */
@@ -544,7 +553,7 @@ textarea {
 
 @media (max-width: 700px) {
   .home-wordmark {
-    font-size: 42px;
+    top: 37%;
   }
 
   .training-plan-backdrop {
@@ -3536,6 +3545,40 @@ textarea {
   font-weight: 700;
 }
 
+.landing-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.landing-actions .training-plan-launch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 50px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.landing-actions .training-plan-launch-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 17px;
+}
+
+.landing-actions .training-plan-launch-copy strong {
+  font-size: 13px;
+}
+
+.action-label-short {
+  display: none;
+}
+
 .prompt-chips {
   display: flex;
   flex-wrap: wrap;
@@ -4283,6 +4326,34 @@ input[type="range"] {
 
   .landing-intro h1 {
     font-size: 18px;
+  }
+
+  .landing-actions {
+    gap: 6px;
+  }
+
+  .landing-actions .training-plan-launch {
+    min-height: 44px;
+    padding: 7px 5px;
+    gap: 5px;
+  }
+
+  .landing-actions .training-plan-launch-icon {
+    width: 23px;
+    height: 23px;
+    font-size: 14px;
+  }
+
+  .landing-actions .training-plan-launch-copy strong {
+    font-size: 11px;
+  }
+
+  .action-label-full {
+    display: none;
+  }
+
+  .action-label-short {
+    display: inline;
   }
 
   .prompt-chips {

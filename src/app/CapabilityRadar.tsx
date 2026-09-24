@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { buildCapabilityTrainingDirection, type CapabilityAxis, type CapabilityExample, type CapabilityProfile, type TrainingGoalId } from '@/analysis/capability'
+import { APP_NAME } from './brand'
 
 const CENTER = 150
 const RADIUS = 108
@@ -79,7 +80,7 @@ export const CapabilityRadar = ({
       <section className="capability-panel" role="dialog" aria-modal="true" aria-labelledby="capability-title">
         <header className="capability-head">
           <div>
-            <div className="capability-kicker">Virtual Coach / 能力画像</div>
+            <div className="capability-kicker">{APP_NAME} / 能力画像</div>
             <h2 id="capability-title">五维能力雷达</h2>
             <p>基于本次导入的 {profile.eligibleRunCount} 份骑行 · 近 {profile.windowDays} 天真实表现</p>
           </div>
