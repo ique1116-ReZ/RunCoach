@@ -95,8 +95,8 @@ export const parseAmapBicyclingCandidates = (json: any): AmapCyclingCandidate[] 
     }).map(gcj02ToWgs84)
     const distanceM = Number(path.distance)
     if (coordinates.length < 2 || !Number.isFinite(distanceM) || distanceM <= 0) return []
-    const greenwaySteps = steps.filter((step: any) => /绿道|自行车道|骑行道/.test(String(step.road_name ?? '')))
-    const greenwayRoads: string[] = [...new Set<string>(greenwaySteps.map((step: any) => String(step.road_name).trim()))]
+    const greenwaySteps = steps.filter((step: any) => /绿道|自行车道|骑行道|慢行道|山海连城/.test(String(step.road_name ?? step.roadName ?? '')))
+    const greenwayRoads: string[] = [...new Set<string>(greenwaySteps.map((step: any) => String(step.road_name ?? step.roadName).trim()))]
     const greenwayNamedM = greenwaySteps.reduce((sum: number, step: any) => {
       const meters = Number(step.step_distance)
       return sum + (Number.isFinite(meters) && meters > 0 ? meters : 0)
@@ -111,11 +111,13 @@ export const parseAmapBicycling = (json: any): RouteResult => parseAmapBicycling
 
 export const rankAmapCyclingCandidates = (candidates: AmapCyclingCandidate[], preferGreenway: boolean): AmapCyclingCandidate[] => {
   if (!preferGreenway) return candidates
-  const shortest = Math.min(...candidates.map(candidate => candidate.route.distanceM))
   return [...candidates].sort((a, b) => {
-    const aGreen = a.route.distanceM <= shortest * 1.5 ? a.greenwayNamedM : 0
-    const bGreen = b.route.distanceM <= shortest * 1.5 ? b.greenwayNamedM : 0
-    return bGreen - aGreen
+    const hasGreenway = Number(b.greenwayNamedM > 0) - Number(a.greenwayNamedM > 0)
+    if (hasGreenway) return hasGreenway
+    if (a.greenwayNamedM > 0 && b.greenwayNamedM > 0 && a.greenwayNamedM !== b.greenwayNamedM) {
+      return b.greenwayNamedM - a.greenwayNamedM
+    }
+    return 0
   })
 }
 

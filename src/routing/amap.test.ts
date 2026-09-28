@@ -44,7 +44,7 @@ describe('parseAmapBicycling', () => {
 })
 
 describe('高德骑行备选路线', () => {
-  it('识别道路名称中的绿道里程，并优先显示合理绕路的绿道候选', () => {
+  it('优先选择绿道里程最多的候选，即使它比最短路线长很多', () => {
     const candidates = parseAmapBicyclingCandidates({ status: '1', route: { paths: [
       { distance: '3000', steps: [{ road_name: '普通道路', step_distance: '3000', polyline: '116.40,39.90;116.41,39.91' }] },
       { distance: '3900', steps: [{ road_name: '滨河绿道', step_distance: '2400', polyline: '116.40,39.90;116.42,39.92' }] },
@@ -52,7 +52,7 @@ describe('高德骑行备选路线', () => {
     ] } })
     expect(candidates[1].greenwayNamedM).toBe(2400)
     expect(candidates[1].greenwayRoads).toEqual(['滨河绿道'])
-    expect(rankAmapCyclingCandidates(candidates, true)[0]).toBe(candidates[1])
+    expect(rankAmapCyclingCandidates(candidates, true)[0]).toBe(candidates[2])
     expect(rankAmapCyclingCandidates(candidates, false)[0]).toBe(candidates[0])
   })
 
