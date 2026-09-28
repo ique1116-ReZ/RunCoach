@@ -4,6 +4,7 @@ export type HomeBackground = 'contour' | 'dither'
 export type CoachMode = 'training' | 'health'
 
 export type CyclingHeartRateProfile = {
+  thresholdPower?: number
   hrmax?: number
   lthr?: number
   age?: number
@@ -34,6 +35,7 @@ export const normalizeCyclingHeartRateProfile = (value: unknown): CyclingHeartRa
   if (!value || typeof value !== 'object') return {}
   const candidate = value as CyclingHeartRateProfile
   return {
+    ...(isIntegerInRange(candidate.thresholdPower, 1, 2000) ? { thresholdPower: candidate.thresholdPower } : {}),
     ...(isIntegerInRange(candidate.hrmax, 30, 230) ? { hrmax: candidate.hrmax } : {}),
     ...(isIntegerInRange(candidate.lthr, 30, 230) ? { lthr: candidate.lthr } : {}),
     ...(isIntegerInRange(candidate.age, 18, 80) ? { age: candidate.age } : {}),

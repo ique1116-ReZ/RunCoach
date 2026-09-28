@@ -199,7 +199,7 @@ export const executeTool = async (name: string, args: any, ctx: ToolContext): Pr
       const run = ctx.runs.get(args.run_id)
       if (!run) return fail('找不到该训练，请确认已上传')
       const digest = buildRunDigest(run)
-      if (digest.cyclingAnalysis?.heartRateZones.referenceRequired) {
+      if (digest.cyclingAnalysis?.heartRateZones.referenceRequired && !digest.effortScore) {
         ctx.requestHeartRateSettings?.()
         return ok({
           fileName: digest.fileName,

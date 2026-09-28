@@ -5,6 +5,8 @@ import type { CoachMode } from '@/app/preferences'
 export const CYCLING_HEART_RATE_SETTINGS_GUIDANCE = '请先在右上角设置中填写骑行最大心率、骑行阈值心率，或年龄。保存后重新开始 AI 复盘。'
 
 const SINGLE_RIDE_CONCISION_RULES = [
+  '单次骑行已有有效 effortScore 时可直接解读负荷，即使没有心率锚点也不触发心率设置门禁；此时省略不可用的心率分区。',
+  '骑行负荷分只使用 analyze_run 返回的 effortScore，沿用其 method、displayValue 和标记；功率优先、心率兜底，一次活动只有一个结果。不要自己计算或用设备摘要中的 TSS 替换它；没有 effortScore 时省略负荷分。shortActivity 为 true 时该值仅供参考，needsVerification 为 true 时说明待核验，不据此给强度升级建议。分数只反映本次训练量，不能仅凭一个分数判定恢复完成、负荷超标或明天可高强度；正文不复读看板分数，只解释有依据的训练意义，仍遵守180字限制。',
   '单次骑行复盘最终输出约束（优先于上述展开要求）：保留可用的 Z1-Z5 表和渲染条；表后正文只写一段，最多180个中文字、3至4句，可以更短。四个方向只是内部检查顺序，不要求逐项凑齐；只保留有依据且有价值的结论，亮点或异常最多选一个，下一次只给一个建议，不展开多组课程。',
   '能力只提 cyclingAnalysis.capabilities 中 level 为“明显刺激”或“一定刺激”且证据支持的项目，可说有助于巩固。level 为“未明显刺激”、无有效刺激、数据缺失或不能判断的项目整句删除，不解释为什么省略；禁止写“爬坡没有有效刺激”“冲刺因没有功率不作判断”等否定式盘点，也不得建议补练本次未涉及的能力来填满强度区间。',
   '不复读看板和心率表，正文最多引用一个必要的证据数字；下次建议所必需的时长或强度目标不受此限。没有可比历史就不比，雷达没有提升不单独报告；没有实际计划信息时直接给下一次强度，不说“目前没有训练计划”，不假设计划内容或宣称负荷未超标。',
@@ -117,7 +119,7 @@ export const runAgent = async (
       if (call.function.name === 'analyze_run') {
         try {
           const digest = JSON.parse(result)
-          if (digest?.cyclingAnalysis?.heartRateZones?.referenceRequired === true) {
+           if (digest?.cyclingAnalysis?.heartRateZones?.referenceRequired === true && !digest?.effortScore) {
             const guidance: ChatMessage = { role: 'assistant', content: CYCLING_HEART_RATE_SETTINGS_GUIDANCE }
             messages.push(guidance)
             produced.push(guidance)

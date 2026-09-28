@@ -1,5 +1,6 @@
 import type { HeartRateReference, Run, TrackPoint } from '@runs/types'
 import { hrmaxZones, lthrZones, zoneForHr } from '@runs/zones'
+import { sensorTimeline, validHeartRate } from '@runs/sensor-timeline'
 
 export type HeartRateZoneSummary = {
   id: string
@@ -346,7 +347,7 @@ const countSurges = (items: TimedPoint[], selector: (point: TrackPoint) => numbe
 }
 
 const buildHeartRateZones = (
-  items: TimedPoint[],
+  items: Array<{ point: { hr?: number }; seconds: number }>,
   personalReference: HeartRateReference | undefined
 ): HeartRateAnalysis => {
   const heartRates = items.map(item => item.point.hr)
@@ -417,7 +418,7 @@ const buildHeartRateZones = (
       minBpm: zone.minBpm,
       maxBpm: zone.maxBpm,
       rangeText: zone.rangeText,
-      seconds: round(zone.seconds, 0) ?? 0,
+      seconds: zone.seconds,
       durationText: durationText(zone.seconds),
       percent: round(zone.percent, 1) ?? 0,
       barText: percentBar(zone.percent),
@@ -434,7 +435,9 @@ const levelForScore = (score: number): CyclingCapabilityLevel => {
 
 export const buildCyclingAnalysis = (run: Run): CyclingAnalysis => {
   const items = toTimedPoints(run)
-  const heartRate = buildHeartRateZones(items, run.heartRateReference)
+  const heartRate = buildHeartRateZones(sensorTimeline(run).map(item => ({
+    ...item, point: { hr: validHeartRate(item.point.hr) ? item.point.hr : undefined }
+  })), run.heartRateReference)
   const flowSegment = findFlowSegment(run, items)
   const durationSeconds = run.totalTime > 0 ? run.totalTime / 1000 : items.reduce((sum, item) => sum + item.seconds, 0)
   const durationMinutes = durationSeconds / 60

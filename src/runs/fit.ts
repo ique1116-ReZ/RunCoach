@@ -1,5 +1,5 @@
 import FitParser from 'fit-file-parser'
-import type { HeartRateReference, Run, RunLap, SummaryEntry, SummaryValue, TrackPoint } from './types'
+import type { HeartRateReference, Run, RunLap, SensorPoint, SummaryEntry, SummaryValue, TrackPoint } from './types'
 import { haversineMeters } from './geo'
 import { detectActivityType } from './activity'
 
@@ -136,6 +136,46 @@ const readHeartRateReference = (data: any): HeartRateReference | undefined => {
   return undefined
 }
 
+/** Insert timer boundaries so even records emitted during a pause contribute no time. */
+export const readFitSensorPoints = (records: any[], events: any[] = []): SensorPoint[] => {
+  const sensors: SensorPoint[] = records.map(record => ({
+    time: new Date(record.timestamp).getTime(),
+    timerTime: finiteNonNegative(record.timer_time) === undefined ? undefined : Number(record.timer_time) * 1000,
+    hr: typeof record.heart_rate === 'number' ? record.heart_rate : undefined,
+    power: typeof record.power === 'number' ? record.power : undefined
+  })).filter(point => Number.isFinite(point.time)).sort((a, b) => a.time - b.time)
+  if (!sensors.length) return []
+  const boundaries = events.filter(event => event.event === 'timer' &&
+    ['start', 'stop', 'stop_all', 'stop_disable', 'stop_disable_all'].includes(event.event_type))
+    .map(event => ({ time: new Date(event.timestamp).getTime(), active: event.event_type === 'start' }))
+    .filter(event => Number.isFinite(event.time)).sort((a, b) => a.time - b.time)
+  if (!boundaries.length) return sensors
+  const start = Math.min(sensors[0].time, boundaries[0].time)
+  const end = sensors.at(-1)!.time
+  const atTime = new Map(sensors.map(point => [point.time, point]))
+  for (const event of boundaries) {
+    if (event.time >= start && event.time <= end && !atTime.has(event.time)) atTime.set(event.time, { time: event.time })
+  }
+  const points = [...atTime.values()].sort((a, b) => a.time - b.time)
+  let clock = start
+  let timerTime = 0
+  let active = true
+  let index = 0
+  for (const point of points) {
+    while (index < boundaries.length && boundaries[index].time <= point.time) {
+      const event = boundaries[index++]
+      if (active) timerTime += event.time - clock
+      clock = event.time
+      active = event.active
+    }
+    if (active) timerTime += point.time - clock
+    clock = point.time
+    point.timerTime = timerTime
+    if (!active) { point.hr = undefined; point.power = undefined }
+  }
+  return points
+}
+
 export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Promise<Run> => {
   const fitParser = new FitParser({
     force: true,
@@ -268,6 +308,8 @@ export const parseFitFile = async (buffer: ArrayBuffer, sourcePath: string): Pro
     activityType,
     sourcePath,
     sourceType: 'fit',
+    // Sensor records without GPS are still required for load and heart-rate coverage.
+    sensorPoints: readFitSensorPoints(records, Array.isArray(data?.events) ? data.events : []),
     points: cleaned,
     totalDistance,
     totalTime,

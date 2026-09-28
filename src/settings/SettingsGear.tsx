@@ -32,12 +32,14 @@ export type RoutingSettingsRequest = {
 }
 
 type HeartRateDraft = {
+  thresholdPower: string
   hrmax: string
   lthr: string
   age: string
 }
 
 const profileToDraft = (profile: CyclingHeartRateProfile): HeartRateDraft => ({
+  thresholdPower: profile.thresholdPower?.toString() ?? '',
   hrmax: profile.hrmax?.toString() ?? '',
   lthr: profile.lthr?.toString() ?? '',
   age: profile.age?.toString() ?? ''
@@ -45,6 +47,7 @@ const profileToDraft = (profile: CyclingHeartRateProfile): HeartRateDraft => ({
 
 const readHeartRateDraft = (draft: HeartRateDraft): { profile?: CyclingHeartRateProfile; error?: string } => {
   const fields = [
+    { key: 'thresholdPower' as const, value: draft.thresholdPower, label: '阈值功率', min: 1, max: 2000 },
     { key: 'hrmax' as const, value: draft.hrmax, label: '最大心率', min: 30, max: 230 },
     { key: 'lthr' as const, value: draft.lthr, label: '阈值心率', min: 30, max: 230 },
     { key: 'age' as const, value: draft.age, label: '年龄', min: 18, max: 80 }
@@ -304,7 +307,12 @@ export const SettingsGear = ({
           </section>
 
           <section className="settings-section heart-rate-settings" aria-labelledby="heart-rate-settings-title">
-            <h2 id="heart-rate-settings-title">骑行心率分区</h2>
+            <h2 id="heart-rate-settings-title">骑行心率分区与负荷</h2>
+            <label htmlFor="cycling-threshold-power">骑行阈值功率（W）</label>
+            <input id="cycling-threshold-power" inputMode="numeric" placeholder="已知阈值功率，例如 250"
+              value={heartRateDraft.thresholdPower}
+              onChange={event => updateHeartRateDraft('thresholdPower', event.target.value)} />
+            <div className="settings-note">用于功率负荷计算；不知道可留空。保存后仅用于新导入活动。</div>
             <div className="settings-input-grid">
               <div>
                 <label htmlFor="cycling-hrmax">最大心率 HRmax</label>

@@ -28,6 +28,7 @@ import { StartPointCard } from './StartPointCard'
 import { PinConfirm } from './PinConfirm'
 import { ReplayBar } from './ReplayBar'
 import { ActivityDashboard } from './ActivityDashboard'
+import { snapshotEffortScore } from '@/analysis/effort'
 import { DitherMapBackdrop } from './DitherMapBackdrop'
 import { TrainingPlanOverlay } from './TrainingPlanOverlay'
 import { RouteShapeCard } from './RouteShapeCard'
@@ -461,10 +462,11 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
     if (!docked) setDocked(true)
     const imported = await parseActivityFile(file)
     const parsed: Run = imported.activityType === 'cycling'
-      ? {
+      ? snapshotEffortScore({
           ...imported,
+          thresholdPower: heartRateProfile.thresholdPower,
           heartRateReference: resolveCyclingHeartRateReference(heartRateProfile, imported.heartRateReference)
-        }
+        })
       : imported
     runs.current.set(parsed.id, parsed)
     setRun(parsed)
@@ -506,7 +508,8 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       try {
         const imported = await parseActivityFile(file)
         const parsed = imported.activityType === 'cycling'
-          ? { ...imported, heartRateReference: resolveCyclingHeartRateReference(heartRateProfile, imported.heartRateReference) }
+          ? snapshotEffortScore({ ...imported, thresholdPower: heartRateProfile.thresholdPower,
+              heartRateReference: resolveCyclingHeartRateReference(heartRateProfile, imported.heartRateReference) })
           : imported
         parsedRuns.push(parsed)
       } catch (error: any) {
@@ -575,14 +578,14 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       return
     }
     let uploadedRun = storedRun
-    if (review.activityType === 'cycling' && !uploadedRun.heartRateReference) {
+    if (review.activityType === 'cycling' && !uploadedRun.heartRateReference && !uploadedRun.effortScore) {
       const reference = resolveCyclingHeartRateReference(heartRateProfile)
       if (!reference) {
         setOpenHeartRateSettingsRequest(value => value + 1)
         pushAssistant('请先在右上角设置中填写骑行最大心率、骑行阈值心率，或年龄。保存后再开始 AI 复盘。')
         return
       }
-      uploadedRun = { ...uploadedRun, heartRateReference: reference }
+      uploadedRun = snapshotEffortScore({ ...uploadedRun, heartRateReference: reference })
       runs.current.set(uploadedRun.id, uploadedRun)
       setRun(uploadedRun)
     }

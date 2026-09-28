@@ -1,5 +1,7 @@
 import type { ActivityType, Run } from '@runs/types'
 import { sampleAtDistance } from '@runs/align'
+import { getEffortScore } from './effort'
+import type { EffortScore } from '@runs/types'
 
 export type DashboardSample = {
   distanceKm: number
@@ -14,6 +16,7 @@ export type DashboardSample = {
 }
 
 export type DashboardData = {
+  effortScore?: EffortScore
   id: string
   name: string
   sourcePath: string
@@ -117,6 +120,7 @@ export const buildDashboardData = (run: Run): DashboardData => {
 
   return {
     id: run.id,
+    effortScore: getEffortScore(run),
     name: run.name,
     sourcePath: run.sourcePath,
     activityType: run.activityType,

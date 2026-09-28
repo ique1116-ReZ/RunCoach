@@ -241,6 +241,8 @@ export const ActivityDashboard = ({ run, onClose }: { run: Run; onClose: () => v
   }
 
   const summaryCards = [
+    ...(data.effortScore ? [{ label: `负荷分 · ${data.effortScore.method === 'power' ? 'TSS 功率' : 'TSS HR'}`,
+      value: `${data.effortScore.displayValue}`, tone: 'orange' }] : []),
     { label: '距离', value: `${numberText(data.totalDistanceKm, 2)} km`, tone: 'blue' },
     { label: '时长', value: formatDuration(data.totalTimeMs), tone: 'neutral' },
     data.activityType === 'cycling'
@@ -271,6 +273,11 @@ export const ActivityDashboard = ({ run, onClose }: { run: Run; onClose: () => v
             <button type="button" className="dashboard-close" onClick={onClose} aria-label="关闭数据看板">×</button>
           </div>
         </header>
+        {data.effortScore && <div className="dashboard-metric-row">
+          <span>{data.effortScore.label} · {data.effortScore.shortActivity ? '短时活动，仅供参考。' : ''}
+            {data.effortScore.needsVerification ? '待核验。' : ''}
+            负荷分与设备上的训练负荷不是同一个指标，数值不能直接比较。</span>
+        </div>}
 
         <div className="dashboard-summary" aria-label="训练概览">
           {summaryCards.map(card => (

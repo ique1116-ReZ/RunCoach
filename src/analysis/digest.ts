@@ -1,6 +1,7 @@
 import type { Run } from '@runs/types'
 import { sampleAtDistance } from '@runs/align'
 import { buildCyclingAnalysis } from './cycling'
+import { getEffortScore } from './effort'
 
 export type ComparisonRelation = 'auto' | 'same_athlete' | 'different_athletes'
 
@@ -138,6 +139,7 @@ export const buildRunDigest = (run: Run) => {
         ? '跑步训练：优先分析配速、心率、步频、爬升和前后程稳定性。'
         : '运动类型未知：结合文件名、原始摘要和用户描述判断；不确定时明确说明，不要武断归类。',
     cyclingAnalysis: isCycling ? buildCyclingAnalysis(run) : undefined,
+    effortScore: isCycling ? getEffortScore(run) : undefined,
     checkpoints
   }
 }

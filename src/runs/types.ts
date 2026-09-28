@@ -32,6 +32,32 @@ export type HeartRateReference = {
   source: string
 }
 
+export type SensorPoint = {
+  time: number
+  timerTime?: number
+  hr?: number
+  power?: number
+}
+
+export type EffortScore = {
+  value: number
+  displayValue: number
+  method: 'power' | 'heart_rate'
+  label: '功率计算' | '心率估算'
+  coverage: number
+  movingSeconds: number
+  weightedPower?: number
+  intensityFactor?: number
+  thresholdPower?: number
+  heartRateReference?: HeartRateReference
+  segmentSeconds?: number[]
+  hourlyPoints?: number[]
+  cutoffs?: number[]
+  algorithmVersion: string
+  shortActivity: boolean
+  needsVerification: boolean
+}
+
 export type Zone = {
   id: string
   min: number
@@ -80,4 +106,8 @@ export type Run = {
   lapSummaries: RunLap[]
   aggregateMetrics: AggregateMetrics
   heartRateReference?: HeartRateReference
+  thresholdPower?: number
+  sensorPoints?: SensorPoint[]
+  /** Frozen at import; null means no eligible score for this snapshot. */
+  effortScore?: EffortScore | null
 }
