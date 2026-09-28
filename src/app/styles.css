@@ -4550,3 +4550,37 @@ input[type="range"] {
 .cycling-edit-insert select { max-width: 140px; padding: 6px; background: #172130; color: #fff; border: 1px solid #526078; border-radius: 6px; }
 .cycling-edit-via-search { margin-top: 10px; }
 .cycling-edit-suggestions { position: relative; z-index: 3; max-height: 180px; overflow-y: auto; }
+/* File imports work over the map, chat and dashboard without intercepting map drags. */
+.activity-file-drop {
+  position: fixed;
+  inset: 12px;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border: 2px dashed #7aa7ff;
+  border-radius: 20px;
+  background: rgba(10, 20, 30, .88);
+  color: #f1f5f7;
+  pointer-events: none;
+  text-align: center;
+}
+.activity-file-drop strong { display: block; font-size: 24px; }
+.activity-file-drop span { display: block; margin-top: 12px; color: #b7c7db; }
+.activity-file-drop-error {
+  position: fixed;
+  z-index: 10001;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 18px;
+  border: 1px solid #f2994a;
+  border-radius: 12px;
+  background: #15202b;
+  color: #f1f5f7;
+}
+.activity-file-drop-error button { background: transparent; border: 0; color: inherit; font-size: 24px; cursor: pointer; }

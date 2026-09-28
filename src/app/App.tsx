@@ -28,6 +28,7 @@ import { StartPointCard } from './StartPointCard'
 import { PinConfirm } from './PinConfirm'
 import { ReplayBar } from './ReplayBar'
 import { ActivityDashboard } from './ActivityDashboard'
+import { ActivityFileDrop } from './ActivityFileDrop'
 import { snapshotEffortScore } from '@/analysis/effort'
 import { DitherMapBackdrop } from './DitherMapBackdrop'
 import { TrainingPlanOverlay } from './TrainingPlanOverlay'
@@ -907,6 +908,8 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
           </div>
         </div>
       )}
+
+      <ActivityFileDrop onImport={analyzeRide} />
 
       {run && <ReplayBar run={run} map={mapRef.current} onOpenDashboard={() => setDashboardOpen(true)} />}
 
