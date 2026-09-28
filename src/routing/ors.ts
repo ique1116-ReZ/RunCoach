@@ -37,6 +37,8 @@ export type RouteResult = {
   cyclingTrip?: {
     originName: string
     destinationName: string
+    viaNames?: string[]
+    viaPoints?: Array<{ name: string; coord: LngLat }>
     greenwayNamedM: number
     greenwayRoads: string[]
     alternativeCount: number

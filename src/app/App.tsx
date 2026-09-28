@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { MapView } from '@/map/MapView'
-import { clearRoute, setCheckpoints, setCurrentLocationMarker, setPlannerPin, setRouteLine, setRouteTrafficAnalysis, setStartPin, setTrack, fitToCoords } from '@/map/layers'
+import { clearRoute, setCheckpoints, setCurrentLocationMarker, setPlannerPin, setPlannerViaPins, setRouteLine, setRouteTrafficAnalysis, setStartPin, setTrack, fitToCoords } from '@/map/layers'
 import { ChatDock } from '@/chat/ChatDock'
 import { useChatAgent } from '@/chat/useChatAgent'
 import { SettingsGear, type RoutingSettingsRequest } from '@/settings/SettingsGear'
@@ -160,8 +160,8 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const [courseRouteStatus, setCourseRouteStatus] = useState<CourseRouteStatus | null>(null)
   const [courseRouteMapMode, setCourseRouteMapMode] = useState(false)
   const [cyclingPlannerOpen, setCyclingPlannerOpen] = useState(false)
-  const [cyclingMapPicking, setCyclingMapPicking] = useState<'start' | 'end' | null>(null)
-  const [cyclingPickedPoint, setCyclingPickedPoint] = useState<{ field: 'start' | 'end'; coord: LngLat; revision: number } | null>(null)
+  const [cyclingMapPicking, setCyclingMapPicking] = useState<{ field: 'start' | 'end' | 'via'; viaId?: number } | null>(null)
+  const [cyclingPickedPoint, setCyclingPickedPoint] = useState<{ field: 'start' | 'end' | 'via'; viaId?: number; coord: LngLat; revision: number } | null>(null)
   const [checkpointPicking, setCheckpointPicking] = useState(false)
   const [checkpointError, setCheckpointError] = useState('')
   const [courseRouteContext, setCourseRouteContext] = useState<CourseRouteContext | null>(null)
@@ -281,9 +281,9 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
     paintRoute(route)
   }
 
-  const handlePlanCyclingTrip = async (origin: string | Place, destination: string | Place, preferGreenway: boolean) => {
+  const handlePlanCyclingTrip = async (origin: string | Place, destination: string | Place, vias: Place[], preferGreenway: boolean) => {
     try {
-      const alternatives = await planCyclingTrip(origin, destination, preferGreenway)
+      const alternatives = await planCyclingTrip(origin, destination, vias, preferGreenway)
       if (!docked) setDocked(true)
       setCourseRouteMapMode(false)
       setCheckpointPicking(false)
@@ -291,6 +291,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       if (mapRef.current) {
         setPlannerPin(mapRef.current, 'start', null)
         setPlannerPin(mapRef.current, 'end', null)
+        setPlannerViaPins(mapRef.current, [])
       }
       routesRef.current = [...routesRef.current, ...alternatives]
       setRoutes([...routesRef.current])
@@ -313,8 +314,13 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
     if (mapRef.current) {
       setPlannerPin(mapRef.current, 'start', null)
       setPlannerPin(mapRef.current, 'end', null)
+      setPlannerViaPins(mapRef.current, [])
     }
   }
+
+  const updatePlannerViaPins = useCallback((coords: LngLat[]) => {
+    if (mapRef.current) setPlannerViaPins(mapRef.current, coords)
+  }, [])
 
   const updateSelectedRoute = (route: RouteResult) => {
     routesRef.current = routesRef.current.map((item, index) => index === routeIdx ? route : item)
@@ -591,8 +597,8 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
 
   const onMapClick = (c: LngLat) => {
     if (cyclingMapPicking) {
-      if (mapRef.current) setPlannerPin(mapRef.current, cyclingMapPicking, c)
-      setCyclingPickedPoint({ field: cyclingMapPicking, coord: c, revision: Date.now() })
+      if (mapRef.current && cyclingMapPicking.field !== 'via') setPlannerPin(mapRef.current, cyclingMapPicking.field, c)
+      setCyclingPickedPoint({ ...cyclingMapPicking, coord: c, revision: Date.now() })
       setCyclingMapPicking(null)
       return
     }
@@ -714,7 +720,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
     <div className="app-root">
       <MapView onReady={m => { mapRef.current = m; setMapReady(true) }} onMapClick={onMapClick} picking={picking || !!cyclingMapPicking || checkpointPicking} />
       <DitherMapBackdrop active={(!docked && !cyclingMapPicking && !checkpointPicking) || !mapReady} mode={homeBackground} />
-      {!docked && (
+      {!docked && !cyclingMapPicking && !checkpointPicking && (
         <div className="home-wordmark" role="img" aria-label={APP_NAME}>
           <img src={`${import.meta.env.BASE_URL}assets/rimelynx-logo.png`} width="685" height="70" alt="" />
           <span className="home-wordmark-accent">COACH</span>
@@ -763,10 +769,10 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       {terrainResolve && <TerrainCard onPick={pickTerrain} onCancel={cancelTerrain} />}
       {startResolve && !picking && <StartPointCard onCurrent={pickCurrent} onManual={pickManual} onCancel={cancelStart} message={startMsg} />}
       {routeShapeResolve && <RouteShapeCard onPick={pickRouteShape} onCancel={cancelRouteShape} />}
-      {cyclingPlannerOpen && <CyclingRoutePlanner currentLocation={locationFix?.source === 'browser' ? locationFix.coord : null} mapReady={mapReady} mapPicking={cyclingMapPicking} pickedPoint={cyclingPickedPoint} onPickMap={setCyclingMapPicking} onClose={closeCyclingPlanner} onPlan={handlePlanCyclingTrip} />}
+      {cyclingPlannerOpen && <CyclingRoutePlanner currentLocation={locationFix?.source === 'browser' ? locationFix.coord : null} mapReady={mapReady} mapPicking={cyclingMapPicking} pickedPoint={cyclingPickedPoint} onPickMap={setCyclingMapPicking} onClose={closeCyclingPlanner} onPlan={handlePlanCyclingTrip} onViaPointsChange={updatePlannerViaPins} />}
       {cyclingMapPicking && (
         <div className="pin-confirm cycling-map-pick-bar" role="status">
-          <span>在地图上点击{cyclingMapPicking === 'start' ? '起点' : '终点'}</span>
+          <span>在地图上点击{cyclingMapPicking.field === 'start' ? '起点' : cyclingMapPicking.field === 'end' ? '终点' : '途经点'}</span>
           <button onClick={() => setCyclingMapPicking(null)}>取消选点</button>
         </div>
       )}
@@ -806,6 +812,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
           {routes[routeIdx].cyclingTrip && (
             <div className="cycling-trip-info">
               <strong>{routes[routeIdx].cyclingTrip.originName} → {routes[routeIdx].cyclingTrip.destinationName}</strong>
+              {(routes[routeIdx].cyclingTrip.viaNames?.length ?? 0) > 0 && <span>途经：{routes[routeIdx].cyclingTrip.viaNames?.join(' → ')}</span>}
               <span>备选方案 {routes[routeIdx].cyclingTrip.alternativeIndex}/{routes[routeIdx].cyclingTrip.alternativeCount}</span>
               {routes[routeIdx].cyclingTrip.greenwayRoads.length > 0
                 ? <span>名称含绿道的路段约 {(routes[routeIdx].cyclingTrip.greenwayNamedM / 1000).toFixed(1)} km：{routes[routeIdx].cyclingTrip.greenwayRoads.join('、')}</span>

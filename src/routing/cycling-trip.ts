@@ -1,4 +1,4 @@
-import { fetchAmapBicyclingCandidates, gcj02ToWgs84, rankAmapCyclingCandidates } from './amap'
+import { fetchAmapBicyclingCandidates, gcj02ToWgs84, rankAmapCyclingCandidates, type AmapCyclingCandidate } from './amap'
 import { loadRoutingConfig } from './config'
 import type { LngLat, RouteResult } from './ors'
 
@@ -70,6 +70,7 @@ export const geocodeAmapPlace = async (
 export const planCyclingTrip = async (
   origin: string | Place,
   destination: string | Place,
+  viaPoints: Place[] = [],
   preferGreenway = true,
   deps: {
     resolve?: (query: string, key: string) => Promise<Place>
@@ -81,15 +82,40 @@ export const planCyclingTrip = async (
   const resolve = deps.resolve ?? resolveAmapPoi
   const start = typeof origin === 'string' ? await resolve(origin, key) : origin
   const end = typeof destination === 'string' ? await resolve(destination, key) : destination
-  const candidates = await (deps.fetchCandidates ?? fetchAmapBicyclingCandidates)(start.coord, end.coord, key, { alternativeRoute: 3 })
+  const waypoints = [start, ...viaPoints, end]
+  const segments: AmapCyclingCandidate[][] = []
+  for (let index = 0; index < waypoints.length - 1; index += 1) {
+    segments.push(await (deps.fetchCandidates ?? fetchAmapBicyclingCandidates)(waypoints[index].coord, waypoints[index + 1].coord, key, { alternativeRoute: 3 }))
+  }
+  const alternativeCount = Math.min(...segments.map(segment => segment.length))
+  const candidates = Array.from({ length: alternativeCount }, (_, alternativeIndex) => {
+    const legs = segments.map(segment => segment[alternativeIndex])
+    return {
+      route: {
+        kind: 'point_to_point' as const,
+        coordinates: legs.flatMap((leg, index) => {
+          const coordinates = [...leg.route.coordinates]
+          coordinates[0] = waypoints[index].coord
+          coordinates[coordinates.length - 1] = waypoints[index + 1].coord
+          return index === 0 ? coordinates : coordinates.slice(1)
+        }),
+        distanceM: legs.reduce((sum, leg) => sum + leg.route.distanceM, 0),
+        provider: 'amap' as const
+      },
+      greenwayNamedM: legs.reduce((sum, leg) => sum + leg.greenwayNamedM, 0),
+      greenwayRoads: [...new Set(legs.flatMap(leg => leg.greenwayRoads))],
+    }
+  })
   return rankAmapCyclingCandidates(candidates, preferGreenway).map((candidate, index) => ({
     ...candidate.route,
     cyclingTrip: {
       originName: start.name,
       destinationName: end.name,
+      viaNames: viaPoints.map(point => point.name),
+      viaPoints,
       greenwayNamedM: candidate.greenwayNamedM,
       greenwayRoads: candidate.greenwayRoads,
-      alternativeCount: candidates.length,
+      alternativeCount,
       alternativeIndex: index + 1,
       greenwayPreferred: preferGreenway
     }
