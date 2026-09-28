@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 
-export const Composer = ({ docked, onSend, onUpload, onAnalyzeBatch }: {
+export const Composer = ({ docked, onSend, onUpload, onAnalyzeBatch, onOpenCyclingPlanner }: {
   docked: boolean
   onSend: (t: string) => void
   onUpload: (f: File) => void
   onAnalyzeBatch: (files: File[]) => void
+  onOpenCyclingPlanner: () => void
 }) => {
   const [text, setText] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -52,6 +53,10 @@ export const Composer = ({ docked, onSend, onUpload, onAnalyzeBatch }: {
         </button>
         {menuOpen && (
           <div className="composer-menu" role="menu">
+            <button className="composer-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); onOpenCyclingPlanner() }}>
+              <span>生成骑行路线</span>
+              <small>输入起点和终点，优先绿道</small>
+            </button>
             <button className="composer-menu-item" role="menuitem" onClick={openFilePicker}>
               <span>导入 FIT / GPX</span>
               <small>支持 FIT、GPX、JSON</small>

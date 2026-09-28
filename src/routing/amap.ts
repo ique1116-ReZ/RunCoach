@@ -78,24 +78,45 @@ const parsePolyline = (raw: string): LngLat[] => raw.split(';').map(point => {
   return [lng, lat] as LngLat
 }).filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
 
-export const parseAmapBicycling = (json: any): RouteResult => {
+export type AmapCyclingCandidate = { route: RouteResult; greenwayNamedM: number; greenwayRoads: string[] }
+
+// The API has no greenway routing switch. Names are only evidence that a returned
+// alternative includes a named greenway, never a guarantee about unnamed steps.
+export const parseAmapBicyclingCandidates = (json: any): AmapCyclingCandidate[] => {
   if (String(json?.status) !== '1') throw new Error(amapErrorMessage(json))
   const paths = Array.isArray(json?.route?.paths) ? json.route.paths : []
-  const path = paths[0]
-  if (!path) throw new Error('高德未返回可用骑行路线')
-  const steps = Array.isArray(path.steps) ? path.steps : []
-  const gcjCoordinates = steps.flatMap((step: any) => parsePolyline(String(step.polyline ?? '')))
-  const coordinates = gcjCoordinates.filter((coord, index) => {
-    const previous = gcjCoordinates[index - 1]
-    return !previous || previous[0] !== coord[0] || previous[1] !== coord[1]
-  }).map(gcj02ToWgs84)
-  if (coordinates.length < 2) throw new Error('高德路线缺少可绘制的坐标点')
-  return {
-    kind: 'point_to_point',
-    coordinates,
-    distanceM: Number(path.distance ?? 0),
-    provider: 'amap'
-  }
+  if (!paths.length) throw new Error('高德未返回可用骑行路线')
+  const candidates = paths.flatMap((path: any): AmapCyclingCandidate[] => {
+    const steps = Array.isArray(path.steps) ? path.steps : []
+    const gcjCoordinates: LngLat[] = steps.flatMap((step: any) => parsePolyline(String(step.polyline ?? '')))
+    const coordinates = gcjCoordinates.filter((coord, index) => {
+      const previous = gcjCoordinates[index - 1]
+      return !previous || previous[0] !== coord[0] || previous[1] !== coord[1]
+    }).map(gcj02ToWgs84)
+    const distanceM = Number(path.distance)
+    if (coordinates.length < 2 || !Number.isFinite(distanceM) || distanceM <= 0) return []
+    const greenwaySteps = steps.filter((step: any) => /绿道|自行车道|骑行道/.test(String(step.road_name ?? '')))
+    const greenwayRoads: string[] = [...new Set<string>(greenwaySteps.map((step: any) => String(step.road_name).trim()))]
+    const greenwayNamedM = greenwaySteps.reduce((sum: number, step: any) => {
+      const meters = Number(step.step_distance)
+      return sum + (Number.isFinite(meters) && meters > 0 ? meters : 0)
+    }, 0)
+    return [{ route: { kind: 'point_to_point', coordinates, distanceM, provider: 'amap' }, greenwayNamedM, greenwayRoads }]
+  })
+  if (!candidates.length) throw new Error('高德路线缺少可绘制的坐标点')
+  return candidates
+}
+
+export const parseAmapBicycling = (json: any): RouteResult => parseAmapBicyclingCandidates(json)[0].route
+
+export const rankAmapCyclingCandidates = (candidates: AmapCyclingCandidate[], preferGreenway: boolean): AmapCyclingCandidate[] => {
+  if (!preferGreenway) return candidates
+  const shortest = Math.min(...candidates.map(candidate => candidate.route.distanceM))
+  return [...candidates].sort((a, b) => {
+    const aGreen = a.route.distanceM <= shortest * 1.5 ? a.greenwayNamedM : 0
+    const bGreen = b.route.distanceM <= shortest * 1.5 ? b.greenwayNamedM : 0
+    return bGreen - aGreen
+  })
 }
 
 export const fetchAmapBicyclingLeg = async (
@@ -106,13 +127,28 @@ export const fetchAmapBicyclingLeg = async (
     request?: (url: string) => Promise<Response>
     schedule?: <T>(request: () => Promise<T>) => Promise<T>
     wait?: (ms: number) => Promise<void>
+    alternativeRoute?: 1 | 2 | 3
   } = {}
 ): Promise<RouteResult> => {
+  return (await fetchAmapBicyclingCandidates(start, end, key, deps))[0].route
+}
+
+export const fetchAmapBicyclingCandidates = async (
+  start: LngLat,
+  end: LngLat,
+  key: string,
+  deps: {
+    request?: (url: string) => Promise<Response>
+    schedule?: <T>(request: () => Promise<T>) => Promise<T>
+    wait?: (ms: number) => Promise<void>
+    alternativeRoute?: 1 | 2 | 3
+  } = {}
+): Promise<AmapCyclingCandidate[]> => {
   if (!key.trim()) throw new Error('缺少高德 Web 服务 Key，请在设置中配置')
   const origin = wgs84ToGcj02(start).map(value => value.toFixed(6)).join(',')
   const destination = wgs84ToGcj02(end).map(value => value.toFixed(6)).join(',')
   const params = new URLSearchParams({
-    key: key.trim(), origin, destination, output: 'json', show_fields: 'polyline,cost', alternative_route: '1'
+    key: key.trim(), origin, destination, output: 'json', show_fields: 'polyline', alternative_route: String(deps.alternativeRoute ?? 1)
   })
   const url = `https://restapi.amap.com/v5/direction/bicycling?${params}`
   const request = deps.request ?? (input => fetch(input))
@@ -122,7 +158,7 @@ export const fetchAmapBicyclingLeg = async (
     const response = await schedule(() => request(url))
     if (!response.ok) throw new Error(`高德请求失败（${response.status}）`)
     const json = await response.json()
-    if (String(json?.status) === '1') return parseAmapBicycling(json)
+    if (String(json?.status) === '1') return parseAmapBicyclingCandidates(json)
     if (!isAmapRateLimit(json) || attempt === AMAP_MAX_RATE_RETRIES - 1) {
       throw new Error(amapErrorMessage(json))
     }

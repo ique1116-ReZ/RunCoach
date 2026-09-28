@@ -17,6 +17,11 @@ const pointsGeo = (coords: LngLat[]) => ({
   features: coords.map(coord => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: coord } }))
 })
 
+const checkpointGeo = (checkpoints: NonNullable<RouteResult['checkpoints']>) => ({
+  type: 'FeatureCollection' as const,
+  features: checkpoints.map(cp => ({ type: 'Feature' as const, properties: { name: cp.name }, geometry: { type: 'Point' as const, coordinates: cp.coord } }))
+})
+
 const linesGeo = (lines: LngLat[][]) => ({
   type: 'FeatureCollection' as const,
   features: lines.filter(line => line.length > 1).map(coordinates => ({
@@ -28,7 +33,7 @@ const linesGeo = (lines: LngLat[][]) => ({
 
 export const ensureLayers = (map: maplibregl.Map) => {
   const add = (id: string) => { if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: lineGeo([]) }) }
-  add('route'); add('route-smooth'); add('traffic-signals'); add('track'); add('current-location'); add('start'); add('runner')
+  add('route'); add('route-smooth'); add('traffic-signals'); add('track'); add('current-location'); add('start'); add('runner'); add('planner-start'); add('planner-end'); add('checkpoints')
   if (!map.getLayer('route-line-casing')) map.addLayer({ id: 'route-line-casing', type: 'line', source: 'route', paint: { 'line-color': '#071019', 'line-width': 9, 'line-opacity': 0.8 } })
   if (!map.getLayer('route-line')) map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#5f8fff', 'line-width': 5.5 } })
   if (!map.getLayer('route-smooth-casing')) map.addLayer({ id: 'route-smooth-casing', type: 'line', source: 'route-smooth', paint: { 'line-color': '#071019', 'line-width': 10, 'line-opacity': 0.72 } })
@@ -41,6 +46,10 @@ export const ensureLayers = (map: maplibregl.Map) => {
   if (!map.getLayer('traffic-signal-halo')) map.addLayer({ id: 'traffic-signal-halo', type: 'circle', source: 'traffic-signals', paint: { 'circle-radius': 11, 'circle-color': '#ff654f', 'circle-opacity': 0.22 } })
   if (!map.getLayer('traffic-signal-dot')) map.addLayer({ id: 'traffic-signal-dot', type: 'circle', source: 'traffic-signals', paint: { 'circle-radius': 5.5, 'circle-color': '#ff654f', 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' } })
   if (!map.getLayer('runner-dot')) map.addLayer({ id: 'runner-dot', type: 'circle', source: 'runner', paint: { 'circle-radius': 7, 'circle-color': '#ffffff', 'circle-stroke-width': 3, 'circle-stroke-color': '#2f6df6' } })
+  if (!map.getLayer('planner-start-dot')) map.addLayer({ id: 'planner-start-dot', type: 'circle', source: 'planner-start', paint: { 'circle-radius': 9, 'circle-color': '#36d399', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } })
+  if (!map.getLayer('planner-end-dot')) map.addLayer({ id: 'planner-end-dot', type: 'circle', source: 'planner-end', paint: { 'circle-radius': 9, 'circle-color': '#f2994a', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } })
+  if (!map.getLayer('checkpoint-dot')) map.addLayer({ id: 'checkpoint-dot', type: 'circle', source: 'checkpoints', paint: { 'circle-radius': 12, 'circle-color': '#78e9ff', 'circle-stroke-width': 3, 'circle-stroke-color': '#071019' } })
+  if (!map.getLayer('checkpoint-label')) map.addLayer({ id: 'checkpoint-label', type: 'symbol', source: 'checkpoints', layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-allow-overlap': true }, paint: { 'text-color': '#071019' } })
 }
 
 const setSource = (map: maplibregl.Map, id: string, data: GeoJSON) => {
@@ -57,12 +66,15 @@ export const setRouteTrafficAnalysis = (map: maplibregl.Map, route: RouteResult)
 export const setTrack = (map: maplibregl.Map, coords: LngLat[]) => setSource(map, 'track', lineGeo(coords))
 export const setCurrentLocationMarker = (map: maplibregl.Map, coord: LngLat | null) => setSource(map, 'current-location', pointGeo(coord))
 export const setStartPin = (map: maplibregl.Map, coord: LngLat | null) => setSource(map, 'start', pointGeo(coord))
+export const setPlannerPin = (map: maplibregl.Map, field: 'start' | 'end', coord: LngLat | null) => setSource(map, `planner-${field}`, pointGeo(coord))
+export const setCheckpoints = (map: maplibregl.Map, checkpoints: NonNullable<RouteResult['checkpoints']>) => setSource(map, 'checkpoints', checkpointGeo(checkpoints))
 export const setRunnerMarker = (map: maplibregl.Map, coord: LngLat | null) => setSource(map, 'runner', pointGeo(coord))
 export const clearRoute = (map: maplibregl.Map) => {
   setRouteLine(map, [])
   setSource(map, 'route-smooth', linesGeo([]))
   setSource(map, 'traffic-signals', pointsGeo([]))
   setStartPin(map, null)
+  setCheckpoints(map, [])
 }
 
 export const fitToCoords = (map: maplibregl.Map, coords: LngLat[]) => {

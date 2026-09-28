@@ -34,6 +34,16 @@ export type RouteResult = {
   provider?: 'amap' | 'ors'
   recommendation?: CourseRouteRecommendation
   trafficAnalysis?: RouteTrafficAnalysis
+  cyclingTrip?: {
+    originName: string
+    destinationName: string
+    greenwayNamedM: number
+    greenwayRoads: string[]
+    alternativeCount: number
+    alternativeIndex: number
+    greenwayPreferred: boolean
+  }
+  checkpoints?: Array<{ name: string; coord: LngLat; alongM: number }>
 }
 
 export const buildRoundTripBody = (start: LngLat, lengthM: number, seed: number, points = 5) => ({

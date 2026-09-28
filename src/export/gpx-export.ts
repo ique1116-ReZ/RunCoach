@@ -14,9 +14,12 @@ export const routeToGpx = (route: RouteResult, name = `${APP_NAME} Route`): stri
       return `      <trkpt lat="${lat}" lon="${lon}">${eleTag}<time>${time}</time></trkpt>`
     })
     .join('\n')
+  const waypoints = (route.checkpoints ?? []).map(cp =>
+    `  <wpt lat="${cp.coord[1]}" lon="${cp.coord[0]}"><name>${esc(cp.name)}</name></wpt>`
+  ).join('\n')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="${APP_NAME}" xmlns="http://www.topografix.com/GPX/1/1">
-  <trk>
+${waypoints ? `${waypoints}\n` : ''}  <trk>
     <name>${esc(name)}</name>
     <trkseg>
 ${pts}

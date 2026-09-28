@@ -29,6 +29,7 @@ export const ChatDock = ({
   onOpenDashboard,
   onDismissPendingReview,
   onOpenTrainingPlan,
+  onOpenCyclingPlanner,
   onAnalyzeRide,
   onAnalyzeBatch,
   onSend,
@@ -44,6 +45,7 @@ export const ChatDock = ({
   onOpenDashboard?: () => void
   onDismissPendingReview?: () => void
   onOpenTrainingPlan: () => void
+  onOpenCyclingPlanner: () => void
   onAnalyzeRide: (file: File) => void
   onAnalyzeBatch: (files: File[]) => void
   onSend: (t: string) => void
@@ -65,6 +67,10 @@ export const ChatDock = ({
             <h1>今天想怎么练？</h1>
           </div>
           <div className="landing-actions" aria-label="骑行训练快捷入口">
+            <button className="training-plan-launch cycling-route-launch" type="button" onClick={onOpenCyclingPlanner} aria-label="生成骑行路线" title="输入或在地图选择起点和终点，优先比较含绿道名称的骑行路线">
+              <span className="training-plan-launch-icon" aria-hidden="true">🚴</span>
+              <span className="training-plan-launch-copy"><strong><span className="action-label-full">生成骑行路线</span><span className="action-label-short">骑行路线</span></strong></span>
+            </button>
             <button className="training-plan-launch" type="button" onClick={onOpenTrainingPlan} aria-label="生成骑行训练计划" title="按目标、时间和设备生成完整 12 周安排">
               <span className="training-plan-launch-icon" aria-hidden="true">↗</span>
               <span className="training-plan-launch-copy"><strong><span className="action-label-full">生成骑行训练计划</span><span className="action-label-short">训练计划</span></strong></span>
@@ -152,7 +158,7 @@ export const ChatDock = ({
           )}
         </div>
       )}
-      <Composer docked={docked} onSend={onSend} onUpload={onUpload} onAnalyzeBatch={onAnalyzeBatch} />
+      <Composer docked={docked} onSend={onSend} onUpload={onUpload} onAnalyzeBatch={onAnalyzeBatch} onOpenCyclingPlanner={onOpenCyclingPlanner} />
     </div>
   )
 }

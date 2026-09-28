@@ -36,3 +36,11 @@ describe('routeToGpx 高程', () => {
     expect(xml).not.toContain('<ele>')
   })
 })
+
+describe('routeToGpx CP 航点', () => {
+  it('把 CP 写成 GPX waypoint，同时保留轨迹', () => {
+    const xml = routeToGpx({ ...route, checkpoints: [{ name: 'CP1', coord: [121.505, 31.205], alongM: 700 }] }, '骑行路线')
+    expect(xml).toContain('<wpt lat="31.205" lon="121.505"><name>CP1</name></wpt>')
+    expect(xml).toContain('<trkpt')
+  })
+})

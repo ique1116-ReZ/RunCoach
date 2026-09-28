@@ -3548,7 +3548,7 @@ textarea {
 
 .landing-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -4445,3 +4445,77 @@ input[type="range"] {
     justify-content: center;
   }
 }
+
+.cycling-route-launch { border-color: rgba(120, 233, 255, 0.42); background: rgba(120, 233, 255, 0.1); }
+.cycling-route-launch .training-plan-launch-icon { background: #78e9ff; color: #061a1e; }
+.cycling-route-launch:hover, .cycling-route-launch:focus-visible { border-color: #78e9ff; background: rgba(120, 233, 255, 0.17); }
+
+.cycling-trip-info {
+  display: grid; gap: 5px; padding: 9px 10px; overflow-wrap: anywhere;
+  border: 1px solid rgba(120, 233, 255, 0.28); border-radius: 9px; background: rgba(120, 233, 255, 0.07);
+}
+.cycling-trip-info strong { color: #d7faff; font-size: 11px; line-height: 1.4; }
+.cycling-trip-info span, .cycling-trip-info small { color: var(--text-muted); font-size: 10px; line-height: 1.45; }
+
+.cycling-planner-backdrop {
+  position: fixed; inset: 0; z-index: 85; display: grid; place-items: center;
+  padding: 16px; background: rgba(1, 3, 7, 0.72);
+}
+.cycling-planner {
+  width: min(420px, 100%); display: grid; gap: 12px; padding: 20px;
+  max-height: calc(100vh - 32px); overflow-y: auto;
+  border: 1px solid var(--panel-border); border-radius: 16px;
+  background: #0b1118; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.4);
+}
+.cycling-planner .choice-head { margin-bottom: 0; }
+.cycling-planner-field { display: grid; gap: 6px; color: var(--text); font-size: 12px; font-weight: 600; }
+.cycling-planner-field input {
+  width: 100%; padding: 11px 12px; border: 1px solid var(--panel-border); border-radius: 9px;
+  background: var(--field-bg); color: var(--text); font: inherit; font-size: 13px;
+}
+.cycling-planner-field input:focus { outline: 1px solid #78e9ff; }
+.cycling-planner-field input:disabled { opacity: 0.5; }
+.cycling-planner-check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 12px; }
+.cycling-planner-check input { accent-color: #78e9ff; }
+.cycling-planner-note { margin: 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.cycling-planner-error { margin: 0; color: var(--orange); font-size: 12px; line-height: 1.4; }
+.cycling-planner-submit {
+  padding: 11px 14px; border: 0; border-radius: 9px; background: #78e9ff;
+  color: #061a1e; cursor: pointer; font-size: 13px; font-weight: 700;
+}
+.cycling-planner-submit:disabled { opacity: 0.55; cursor: wait; }
+
+.cycling-planner-map-pick {
+  justify-self: start; margin-top: -7px; padding: 5px 9px;
+  border: 1px solid rgba(120, 233, 255, 0.4); border-radius: 7px;
+  background: rgba(120, 233, 255, 0.08); color: #a7f0ff; cursor: pointer; font-size: 11px;
+}
+.cycling-planner-map-pick:disabled { opacity: 0.45; cursor: default; }
+.cycling-map-pick-bar { z-index: 86; }
+.route-card { max-height: calc(100vh - 80px); overflow-y: auto; }
+.cycling-checkpoints {
+  display: grid; gap: 7px; padding: 9px 10px;
+  border: 1px solid rgba(120, 233, 255, 0.23); border-radius: 9px;
+  background: rgba(120, 233, 255, 0.04);
+}
+.cycling-checkpoints-head, .cycling-checkpoint-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cycling-checkpoints-head strong { color: #d7faff; font-size: 11px; }
+.cycling-checkpoints button {
+  border: 1px solid rgba(120, 233, 255, 0.3); border-radius: 6px;
+  background: rgba(120, 233, 255, 0.08); color: #b9f1fc;
+  padding: 4px 6px; cursor: pointer; font-size: 10px; white-space: nowrap;
+}
+.cycling-checkpoint-row { color: var(--text-muted); font-size: 10px; }
+.cycling-poi-suggestions {
+  display: grid; max-height: 170px; overflow-y: auto; margin-top: -8px;
+  border: 1px solid rgba(120, 233, 255, 0.28); border-radius: 9px; background: #111c27;
+}
+.cycling-poi-suggestions button {
+  display: grid; gap: 2px; text-align: left; padding: 8px 10px;
+  border: 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.cycling-poi-suggestions button:hover, .cycling-poi-suggestions button:focus-visible { background: rgba(120, 233, 255, 0.12); outline: none; }
+.cycling-poi-suggestions strong { font-size: 12px; }
+.cycling-poi-suggestions small, .cycling-poi-feedback { color: var(--text-muted); font-size: 10px; line-height: 1.35; }
+.cycling-poi-selected { color: #a8f2c9; font-size: 10px; line-height: 1.4; }

@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   gcj02ToWgs84,
   fetchAmapBicyclingLeg,
+  fetchAmapBicyclingCandidates,
   generateAmapOutAndBackRoute,
   parseAmapBicycling,
+  parseAmapBicyclingCandidates,
+  rankAmapCyclingCandidates,
   wgs84ToGcj02
 } from './amap'
 
@@ -37,6 +40,36 @@ describe('parseAmapBicycling', () => {
   it('QPS 超限时给出可理解的提示，不暴露原始错误码', () => {
     expect(() => parseAmapBicycling({ status: '0', info: 'CUQPS_HAS_EXCEEDED_THE_LIMIT' }))
       .toThrow('当前请求较多')
+  })
+})
+
+describe('高德骑行备选路线', () => {
+  it('识别道路名称中的绿道里程，并优先显示合理绕路的绿道候选', () => {
+    const candidates = parseAmapBicyclingCandidates({ status: '1', route: { paths: [
+      { distance: '3000', steps: [{ road_name: '普通道路', step_distance: '3000', polyline: '116.40,39.90;116.41,39.91' }] },
+      { distance: '3900', steps: [{ road_name: '滨河绿道', step_distance: '2400', polyline: '116.40,39.90;116.42,39.92' }] },
+      { distance: '6000', steps: [{ road_name: '远郊绿道', step_distance: '6000', polyline: '116.40,39.90;116.43,39.93' }] }
+    ] } })
+    expect(candidates[1].greenwayNamedM).toBe(2400)
+    expect(candidates[1].greenwayRoads).toEqual(['滨河绿道'])
+    expect(rankAmapCyclingCandidates(candidates, true)[0]).toBe(candidates[1])
+    expect(rankAmapCyclingCandidates(candidates, false)[0]).toBe(candidates[0])
+  })
+
+  it('向 v5 接口请求三条备选路线', async () => {
+    let requested = ''
+    await fetchAmapBicyclingCandidates([116.4, 39.9], [116.41, 39.91], 'key', {
+      alternativeRoute: 3,
+      schedule: request => request(),
+      request: async url => {
+        requested = url
+        return new Response(JSON.stringify({ status: '1', route: { paths: [{ distance: '1000', steps: [{ polyline: '116.4,39.9;116.41,39.91' }] }] } }))
+      }
+    })
+    const url = new URL(requested)
+    expect(url.pathname).toBe('/v5/direction/bicycling')
+    expect(url.searchParams.get('alternative_route')).toBe('3')
+    expect(url.searchParams.get('show_fields')).toBe('polyline')
   })
 })
 

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type maplibregl from 'maplibre-gl'
 import { MapView } from '@/map/MapView'
-import { clearRoute, setCurrentLocationMarker, setRouteLine, setRouteTrafficAnalysis, setStartPin, setTrack, fitToCoords } from '@/map/layers'
+import { clearRoute, setCheckpoints, setCurrentLocationMarker, setPlannerPin, setRouteLine, setRouteTrafficAnalysis, setStartPin, setTrack, fitToCoords } from '@/map/layers'
 import { ChatDock } from '@/chat/ChatDock'
 import { useChatAgent } from '@/chat/useChatAgent'
 import { SettingsGear, type RoutingSettingsRequest } from '@/settings/SettingsGear'
@@ -11,6 +11,8 @@ import type { RouteResult, RouteTrafficAnalysis, LngLat } from '@/routing/ors'
 import { getIpLocation } from '@/routing/ip-location'
 import { routeToGpx } from '@/export/gpx-export'
 import { recommendCyclingRoute, type CourseRouteRequest, type CourseRouteShape } from '@/routing/cycling-route'
+import { planCyclingTrip, type Place } from '@/routing/cycling-trip'
+import { addCheckpoint, removeCheckpoint } from '@/routing/checkpoints'
 import { isInChina } from '@/routing/region'
 import { analyzeRouteTraffic, pendingTrafficAnalysis, unavailableTrafficAnalysis } from '@/routing/traffic-analysis'
 import { loadConfig, type LlmConfig } from '@/llm/provider'
@@ -30,6 +32,7 @@ import { DitherMapBackdrop } from './DitherMapBackdrop'
 import { TrainingPlanOverlay } from './TrainingPlanOverlay'
 import { RouteShapeCard } from './RouteShapeCard'
 import { CapabilityRadar } from './CapabilityRadar'
+import { CyclingRoutePlanner } from './CyclingRoutePlanner'
 import {
   loadCyclingHeartRateProfile,
   loadCoachMode,
@@ -156,6 +159,11 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const [trainingPlanGoal, setTrainingPlanGoal] = useState<TrainingGoalId | undefined>()
   const [courseRouteStatus, setCourseRouteStatus] = useState<CourseRouteStatus | null>(null)
   const [courseRouteMapMode, setCourseRouteMapMode] = useState(false)
+  const [cyclingPlannerOpen, setCyclingPlannerOpen] = useState(false)
+  const [cyclingMapPicking, setCyclingMapPicking] = useState<'start' | 'end' | null>(null)
+  const [cyclingPickedPoint, setCyclingPickedPoint] = useState<{ field: 'start' | 'end'; coord: LngLat; revision: number } | null>(null)
+  const [checkpointPicking, setCheckpointPicking] = useState(false)
+  const [checkpointError, setCheckpointError] = useState('')
   const [courseRouteContext, setCourseRouteContext] = useState<CourseRouteContext | null>(null)
   const [trafficAnalysisRetrying, setTrafficAnalysisRetrying] = useState(false)
   const [routingSettingsRequest, setRoutingSettingsRequest] = useState<RoutingSettingsRequest | undefined>()
@@ -259,6 +267,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
     const map = mapRef.current
     if (map) {
       setRouteLine(map, r.coordinates)
+      setCheckpoints(map, r.checkpoints ?? [])
       setRouteTrafficAnalysis(map, r)
       if (r.coordinates[0]) setStartPin(map, r.coordinates[0])
       fitToCoords(map, r.coordinates)
@@ -270,6 +279,53 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
     setRoutes(routesRef.current)
     setRouteIdx(routesRef.current.length - 1)
     paintRoute(route)
+  }
+
+  const handlePlanCyclingTrip = async (origin: string | Place, destination: string | Place, preferGreenway: boolean) => {
+    try {
+      const alternatives = await planCyclingTrip(origin, destination, preferGreenway)
+      if (!docked) setDocked(true)
+      setCourseRouteMapMode(false)
+      setCheckpointPicking(false)
+      setCheckpointError('')
+      if (mapRef.current) {
+        setPlannerPin(mapRef.current, 'start', null)
+        setPlannerPin(mapRef.current, 'end', null)
+      }
+      routesRef.current = [...routesRef.current, ...alternatives]
+      setRoutes([...routesRef.current])
+      const preferredIndex = routesRef.current.length - alternatives.length
+      setRouteIdx(preferredIndex)
+      paintRoute(alternatives[0])
+      return alternatives
+    } catch (error) {
+      if (/Key|密钥/i.test(String((error as Error)?.message ?? error))) {
+        setRoutingSettingsRequest(current => ({ sequence: (current?.sequence ?? 0) + 1, provider: 'amap' }))
+      }
+      throw error
+    }
+  }
+
+  const closeCyclingPlanner = () => {
+    setCyclingPlannerOpen(false)
+    setCyclingMapPicking(null)
+    setCyclingPickedPoint(null)
+    if (mapRef.current) {
+      setPlannerPin(mapRef.current, 'start', null)
+      setPlannerPin(mapRef.current, 'end', null)
+    }
+  }
+
+  const updateSelectedRoute = (route: RouteResult) => {
+    routesRef.current = routesRef.current.map((item, index) => index === routeIdx ? route : item)
+    setRoutes([...routesRef.current])
+    if (mapRef.current) setCheckpoints(mapRef.current, route.checkpoints ?? [])
+  }
+
+  const openCyclingPlanner = () => {
+    setCheckpointPicking(false)
+    setCheckpointError('')
+    setCyclingPlannerOpen(true)
   }
 
   const updatePublishedTrafficAnalysis = (target: RouteResult, trafficAnalysis: RouteTrafficAnalysis) => {
@@ -352,6 +408,8 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
 
   const goRoute = (i: number) => {
     if (i < 0 || i >= routes.length) return
+    setCheckpointPicking(false)
+    setCheckpointError('')
     setRouteIdx(i)
     paintRoute(routes[i])
   }
@@ -532,6 +590,23 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   }
 
   const onMapClick = (c: LngLat) => {
+    if (cyclingMapPicking) {
+      if (mapRef.current) setPlannerPin(mapRef.current, cyclingMapPicking, c)
+      setCyclingPickedPoint({ field: cyclingMapPicking, coord: c, revision: Date.now() })
+      setCyclingMapPicking(null)
+      return
+    }
+    if (checkpointPicking) {
+      const current = routes[routeIdx]
+      if (!current?.cyclingTrip) return
+      try {
+        updateSelectedRoute(addCheckpoint(current, c))
+        setCheckpointError('')
+      } catch (error) {
+        setCheckpointError(String((error as Error)?.message ?? error))
+      }
+      return
+    }
     if (picking) { setPendingPin(c); if (mapRef.current) setStartPin(mapRef.current, c) }
   }
 
@@ -637,8 +712,8 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
 
   return (
     <div className="app-root">
-      <MapView onReady={m => { mapRef.current = m; setMapReady(true) }} onMapClick={onMapClick} picking={picking} />
-      <DitherMapBackdrop active={!docked || !mapReady} mode={homeBackground} />
+      <MapView onReady={m => { mapRef.current = m; setMapReady(true) }} onMapClick={onMapClick} picking={picking || !!cyclingMapPicking || checkpointPicking} />
+      <DitherMapBackdrop active={(!docked && !cyclingMapPicking && !checkpointPicking) || !mapReady} mode={homeBackground} />
       {!docked && (
         <div className="home-wordmark" role="img" aria-label={APP_NAME}>
           <img src={`${import.meta.env.BASE_URL}assets/rimelynx-logo.png`} width="685" height="70" alt="" />
@@ -688,6 +763,19 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       {terrainResolve && <TerrainCard onPick={pickTerrain} onCancel={cancelTerrain} />}
       {startResolve && !picking && <StartPointCard onCurrent={pickCurrent} onManual={pickManual} onCancel={cancelStart} message={startMsg} />}
       {routeShapeResolve && <RouteShapeCard onPick={pickRouteShape} onCancel={cancelRouteShape} />}
+      {cyclingPlannerOpen && <CyclingRoutePlanner currentLocation={locationFix?.source === 'browser' ? locationFix.coord : null} mapReady={mapReady} mapPicking={cyclingMapPicking} pickedPoint={cyclingPickedPoint} onPickMap={setCyclingMapPicking} onClose={closeCyclingPlanner} onPlan={handlePlanCyclingTrip} />}
+      {cyclingMapPicking && (
+        <div className="pin-confirm cycling-map-pick-bar" role="status">
+          <span>在地图上点击{cyclingMapPicking === 'start' ? '起点' : '终点'}</span>
+          <button onClick={() => setCyclingMapPicking(null)}>取消选点</button>
+        </div>
+      )}
+      {checkpointPicking && (
+        <div className="pin-confirm cycling-map-pick-bar" role="status">
+          <span>点击蓝色路线附近，添加 CP 点</span>
+          <button onClick={() => { setCheckpointPicking(false); setCheckpointError('') }}>完成</button>
+        </div>
+      )}
       {picking && !pendingPin && (
         <div className="pin-confirm">
           <span>在地图上点选起点…</span>
@@ -699,7 +787,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       {routes[routeIdx] && (
         <div className="route-card" role="dialog" aria-label="路线预览">
           <div className="route-card-head">
-            <h4>{routes[routeIdx].recommendation ? '课程路线预览' : '路线预览'}</h4>
+            <h4>{routes[routeIdx].recommendation ? '课程路线预览' : routes[routeIdx].cyclingTrip ? '骑行路线预览' : '路线预览'}</h4>
             {routes.length > 1 && (
               <div className="route-nav">
                 <button disabled={routeIdx === 0} onClick={() => goRoute(routeIdx - 1)}>←</button>
@@ -713,6 +801,31 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
               <strong>{routes[routeIdx].recommendation.courseName}</strong>
               <b>{routes[routeIdx].recommendation.routeShape === 'loop' ? '骑行环线' : '单线往返'}</b>
               <span>{routes[routeIdx].recommendation.fitNote}</span>
+            </div>
+          )}
+          {routes[routeIdx].cyclingTrip && (
+            <div className="cycling-trip-info">
+              <strong>{routes[routeIdx].cyclingTrip.originName} → {routes[routeIdx].cyclingTrip.destinationName}</strong>
+              <span>备选方案 {routes[routeIdx].cyclingTrip.alternativeIndex}/{routes[routeIdx].cyclingTrip.alternativeCount}</span>
+              {routes[routeIdx].cyclingTrip.greenwayRoads.length > 0
+                ? <span>名称含绿道的路段约 {(routes[routeIdx].cyclingTrip.greenwayNamedM / 1000).toFixed(1)} km：{routes[routeIdx].cyclingTrip.greenwayRoads.join('、')}</span>
+                : <span>高德返回的路线中未识别到绿道名称，请核对地图细节。</span>}
+              <small>按道路名称择优，不能保证全程绿道或现场可通行。</small>
+            </div>
+          )}
+          {routes[routeIdx].cyclingTrip && (
+            <div className="cycling-checkpoints">
+              <div className="cycling-checkpoints-head">
+                <strong>CP 点 {routes[routeIdx].checkpoints?.length ?? 0}</strong>
+                <button type="button" onClick={() => { setCheckpointPicking(value => !value); setCheckpointError('') }}>{checkpointPicking ? '完成添加' : '在地图上添加'}</button>
+              </div>
+              {(routes[routeIdx].checkpoints ?? []).map((cp, index) => (
+                <div className="cycling-checkpoint-row" key={`${cp.alongM}-${index}`}>
+                  <span>{cp.name} · 路线第 {(cp.alongM / 1000).toFixed(1)} km</span>
+                  <button type="button" aria-label={`删除 ${cp.name}`} onClick={() => updateSelectedRoute(removeCheckpoint(routes[routeIdx], index))}>删除</button>
+                </div>
+              ))}
+              {checkpointError && <small className="cycling-planner-error" role="alert">{checkpointError}</small>}
             </div>
           )}
           <div className="row"><span>实际距离</span><b>{(routes[routeIdx].distanceM / 1000).toFixed(2)} km</b></div>
@@ -755,8 +868,8 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
             {routes[routeIdx].recommendation && (
               <button disabled={courseRouteStatus?.phase === 'generating'} onClick={() => { void generateAlternativeCourseRoute() }}>换一条</button>
             )}
-            <button onClick={routes[routeIdx].recommendation ? returnToTrainingPlan : () => onSend('换一条')}>
-              {routes[routeIdx].recommendation ? '返回课程' : '换一条'}
+            <button onClick={routes[routeIdx].recommendation ? returnToTrainingPlan : routes[routeIdx].cyclingTrip ? openCyclingPlanner : () => onSend('换一条')}>
+              {routes[routeIdx].recommendation ? '返回课程' : routes[routeIdx].cyclingTrip ? '重新规划' : '换一条'}
             </button>
             <button className="primary" onClick={downloadGpx}>下载 GPX</button>
           </div>
@@ -825,6 +938,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
         onOpenDashboard={() => setDashboardOpen(true)}
         onDismissPendingReview={() => setPendingReview(null)}
         onOpenTrainingPlan={() => { setTrainingPlanGoal(undefined); setTrainingPlanMounted(true); setTrainingPlanOpen(true) }}
+        onOpenCyclingPlanner={openCyclingPlanner}
         onAnalyzeRide={file => { void analyzeRide(file) }}
         onAnalyzeBatch={files => { void analyzeBatch(files) }}
         onSend={onSend}
