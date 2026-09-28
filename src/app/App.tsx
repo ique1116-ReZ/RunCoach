@@ -33,6 +33,7 @@ import { TrainingPlanOverlay } from './TrainingPlanOverlay'
 import { RouteShapeCard } from './RouteShapeCard'
 import { CapabilityRadar } from './CapabilityRadar'
 import { CyclingRoutePlanner } from './CyclingRoutePlanner'
+import { CyclingRouteEditor } from './CyclingRouteEditor'
 import {
   loadCyclingHeartRateProfile,
   loadCoachMode,
@@ -160,6 +161,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   const [courseRouteStatus, setCourseRouteStatus] = useState<CourseRouteStatus | null>(null)
   const [courseRouteMapMode, setCourseRouteMapMode] = useState(false)
   const [cyclingPlannerOpen, setCyclingPlannerOpen] = useState(false)
+  const [editingCyclingRoute, setEditingCyclingRoute] = useState<RouteResult | null>(null)
   const [cyclingMapPicking, setCyclingMapPicking] = useState<{ field: 'start' | 'end' | 'via'; viaId?: number } | null>(null)
   const [cyclingPickedPoint, setCyclingPickedPoint] = useState<{ field: 'start' | 'end' | 'via'; viaId?: number; coord: LngLat; revision: number } | null>(null)
   const [checkpointPicking, setCheckpointPicking] = useState(false)
@@ -329,6 +331,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   }
 
   const openCyclingPlanner = () => {
+    setEditingCyclingRoute(null)
     setCheckpointPicking(false)
     setCheckpointError('')
     setCyclingPlannerOpen(true)
@@ -596,6 +599,7 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
   }
 
   const onMapClick = (c: LngLat) => {
+    if (editingCyclingRoute) return
     if (cyclingMapPicking) {
       if (mapRef.current && cyclingMapPicking.field !== 'via') setPlannerPin(mapRef.current, cyclingMapPicking.field, c)
       setCyclingPickedPoint({ ...cyclingMapPicking, coord: c, revision: Date.now() })
@@ -790,7 +794,19 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
       )}
       {picking && pendingPin && <PinConfirm onConfirm={confirmPin} onCancel={cancelPin} />}
 
-      {routes[routeIdx] && (
+      {editingCyclingRoute && mapRef.current && <CyclingRouteEditor
+        map={mapRef.current}
+        route={editingCyclingRoute}
+        onClose={() => { setEditingCyclingRoute(null); paintRoute(routes[routeIdx]) }}
+        onSave={alternatives => {
+          routesRef.current = [...routesRef.current, ...alternatives]
+          setRoutes([...routesRef.current])
+          setRouteIdx(routesRef.current.length - alternatives.length)
+          setEditingCyclingRoute(null)
+          paintRoute(alternatives[0])
+        }}
+      />}
+      {routes[routeIdx] && !editingCyclingRoute && (
         <div className="route-card" role="dialog" aria-label="路线预览">
           <div className="route-card-head">
             <h4>{routes[routeIdx].recommendation ? '课程路线预览' : routes[routeIdx].cyclingTrip ? '骑行路线预览' : '路线预览'}</h4>
@@ -872,6 +888,12 @@ export default function App({ onOpenWorkoutLibrary }: { onOpenWorkoutLibrary: ()
           )}
           <p className="route-preview-hint">路线已绘制在地图上，可拖动或缩放查看道路细节。</p>
           <div className="card-btns">
+            {routes[routeIdx].cyclingTrip && <button disabled={!mapReady} onClick={() => {
+              closeCyclingPlanner()
+              setCheckpointPicking(false)
+              setPicking(false)
+              setEditingCyclingRoute(routes[routeIdx])
+            }}>微调路线</button>}
             {routes[routeIdx].recommendation && (
               <button disabled={courseRouteStatus?.phase === 'generating'} onClick={() => { void generateAlternativeCourseRoute() }}>换一条</button>
             )}

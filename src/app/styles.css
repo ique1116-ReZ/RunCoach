@@ -4526,3 +4526,25 @@ input[type="range"] {
 .cycling-via-head button:disabled, .cycling-via-remove:disabled { opacity: 0.5; cursor: default; }
 .cycling-via-item { display: grid; gap: 7px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.07); }
 .cycling-via-actions .cycling-planner-map-pick { margin: 0; }
+.cycling-edit-pin {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: #78e9ff;
+  color: #071019;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 2px 12px #0008;
+  cursor: grab;
+  touch-action: none;
+}
+.cycling-edit-pin:active { cursor: grabbing; }
+.cycling-edit-pin.start { background: #36d399; }
+.cycling-edit-pin.end { background: #f2994a; }
+.cycling-edit-points { max-height: 180px; overflow-y: auto; }
+.cycling-edit-points .cycling-checkpoint-row span { overflow-wrap: anywhere; }
+.cycling-edit-insert { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; font-size: 12px; }
+.cycling-edit-insert select { max-width: 140px; padding: 6px; background: #172130; color: #fff; border: 1px solid #526078; border-radius: 6px; }
