@@ -95,7 +95,9 @@ export const parseAmapBicyclingCandidates = (json: any): AmapCyclingCandidate[] 
     }).map(gcj02ToWgs84)
     const distanceM = Number(path.distance)
     if (coordinates.length < 2 || !Number.isFinite(distanceM) || distanceM <= 0) return []
-    const greenwaySteps = steps.filter((step: any) => /绿道|自行车道|骑行道|慢行道|山海连城/.test(String(step.road_name ?? step.roadName ?? '')))
+    // 高德没有“只走绿道”的参数，只能把道路名称作为训练路线的偏好信号。
+    // 沿海、公园和滨水绿道经常没有直接写“绿道”，也要纳入候选证据。
+    const greenwaySteps = steps.filter((step: any) => /绿道|自行车道|骑行道|慢行道|山海连城|滨海|海滨|滨江|滨河|沿江|沿海|环湖|河岸|公园|湿地|湖畔/.test(String(step.road_name ?? step.roadName ?? '')))
     const greenwayRoads: string[] = [...new Set<string>(greenwaySteps.map((step: any) => String(step.road_name ?? step.roadName).trim()))]
     const greenwayNamedM = greenwaySteps.reduce((sum: number, step: any) => {
       const meters = Number(step.step_distance)
@@ -112,12 +114,14 @@ export const parseAmapBicycling = (json: any): RouteResult => parseAmapBicycling
 export const rankAmapCyclingCandidates = (candidates: AmapCyclingCandidate[], preferGreenway: boolean): AmapCyclingCandidate[] => {
   if (!preferGreenway) return candidates
   return [...candidates].sort((a, b) => {
-    const hasGreenway = Number(b.greenwayNamedM > 0) - Number(a.greenwayNamedM > 0)
-    if (hasGreenway) return hasGreenway
-    if (a.greenwayNamedM > 0 && b.greenwayNamedM > 0 && a.greenwayNamedM !== b.greenwayNamedM) {
-      return b.greenwayNamedM - a.greenwayNamedM
+    // 训练路线不以最短为目标：绿道里程权重远高于道路距离，允许明显绕行。
+    // 同样的绿道里程再看绿道占比，最后才用总距离稳定排序。
+    const score = (candidate: AmapCyclingCandidate) => {
+      const distanceM = Math.max(candidate.route.distanceM, 1)
+      const greenwayRatio = candidate.greenwayNamedM / distanceM
+      return candidate.greenwayNamedM * 10 + greenwayRatio * 1_000_000 + distanceM * 0.001
     }
-    return 0
+    return score(b) - score(a)
   })
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
-import { planCyclingTrip, type Place } from '@/routing/cycling-trip'
+import { planCyclingTrip, searchAmapPois, type Place, type PoiSuggestion } from '@/routing/cycling-trip'
 import type { LngLat, RouteResult } from '@/routing/ors'
 
 export function CyclingRouteEditor({ map, route, onSave, onClose }: {
@@ -18,8 +18,24 @@ export function CyclingRouteEditor({ map, route, onSave, onClose }: {
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [viaQuery, setViaQuery] = useState('')
+  const [viaSuggestions, setViaSuggestions] = useState<PoiSuggestion[]>([])
+  const [viaSearching, setViaSearching] = useState(false)
   const active = useRef(false)
   const saving = useRef(false)
+
+  useEffect(() => {
+    if (viaQuery.trim().length < 2 || busy) { setViaSuggestions([]); setViaSearching(false); return }
+    const controller = new AbortController()
+    const timer = globalThis.setTimeout(() => {
+      setViaSearching(true)
+      void searchAmapPois(viaQuery, undefined, { signal: controller.signal })
+        .then(results => { if (!controller.signal.aborted) setViaSuggestions(results) })
+        .catch(() => { if (!controller.signal.aborted) setViaSuggestions([]) })
+        .finally(() => { if (!controller.signal.aborted) setViaSearching(false) })
+    }, 250)
+    return () => { globalThis.clearTimeout(timer); controller.abort() }
+  }, [viaQuery, busy])
 
   useEffect(() => {
     active.current = true
@@ -94,6 +110,18 @@ export function CyclingRouteEditor({ map, route, onSave, onClose }: {
     }
   }
 
+  const addPlace = (suggestion: PoiSuggestion) => {
+    const coord: LngLat = suggestion.coord
+    const place: Place = { name: [suggestion.name, suggestion.district].filter(Boolean).join(' · '), coord }
+    setPoints(current => [
+      ...current.slice(0, insertAfter + 1), place, ...current.slice(insertAfter + 1)
+    ])
+    setInsertAfter(value => value + 1)
+    setViaQuery('')
+    setViaSuggestions([])
+    setError('')
+  }
+
   return <div className="route-card cycling-route-editor" role="dialog" aria-label="微调骑行路线">
     <div className="route-card-head"><h4>微调骑行路线</h4></div>
     <p className="route-preview-hint">拖拽地图上的起点、终点或途经点。可在绿道入口、出口补点，引导路线经过绿道。</p>
@@ -112,6 +140,15 @@ export function CyclingRouteEditor({ map, route, onSave, onClose }: {
         {points.slice(0, -1).map((_, index) => <option key={index} value={index}>{index === 0 ? '起点' : `途${index}`}之后</option>)}
       </select>
     </label>
+    <label className="cycling-planner-field cycling-edit-via-search">搜索并添加途经点
+      <input value={viaQuery} disabled={busy} autoComplete="off" placeholder="如：滨海公园、沿江绿道入口" onChange={event => setViaQuery(event.target.value)} />
+    </label>
+    {viaSearching && <small className="cycling-poi-feedback">正在搜索地点…</small>}
+    {viaSuggestions.length > 0 && <div className="cycling-poi-suggestions cycling-edit-suggestions" role="listbox" aria-label="途经点候选地点">
+      {viaSuggestions.slice(0, 6).map((item, index) => <button type="button" role="option" key={`${item.id}-${index}`} onClick={() => addPlace(item)}>
+        <strong>{item.name}</strong><small>{item.district} {item.address}</small>
+      </button>)}
+    </div>}
     <button type="button" disabled={busy} onClick={() => setAdding(value => !value)}>{adding ? '取消选点' : '在地图上添加途经点'}</button>
     <p className="route-preview-hint" role="status">{busy ? '正在按调整后的点重新计算骑行路线…' : adding ? '点击地图上的绿道位置，添加途经点。' : '蓝线为调整前路线；调整好后点击“应用并重新计算”。原路线保留在历史中。'}</p>
     {!!route.checkpoints?.length && <p className="route-preview-hint">新路线需重新标注 CP 点。</p>}

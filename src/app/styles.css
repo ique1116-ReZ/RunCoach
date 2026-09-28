@@ -4548,3 +4548,5 @@ input[type="range"] {
 .cycling-edit-points .cycling-checkpoint-row span { overflow-wrap: anywhere; }
 .cycling-edit-insert { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; font-size: 12px; }
 .cycling-edit-insert select { max-width: 140px; padding: 6px; background: #172130; color: #fff; border: 1px solid #526078; border-radius: 6px; }
+.cycling-edit-via-search { margin-top: 10px; }
+.cycling-edit-suggestions { position: relative; z-index: 3; max-height: 180px; overflow-y: auto; }

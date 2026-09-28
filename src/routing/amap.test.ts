@@ -56,6 +56,15 @@ describe('高德骑行备选路线', () => {
     expect(rankAmapCyclingCandidates(candidates, false)[0]).toBe(candidates[0])
   })
 
+  it('把滨海、公园和滨水道路作为绿道训练候选', () => {
+    const candidates = parseAmapBicyclingCandidates({ status: '1', route: { paths: [
+      { distance: '3000', steps: [{ road_name: '城市主干道', step_distance: '3000', polyline: '116.40,39.90;116.41,39.91' }] },
+      { distance: '7000', steps: [{ road_name: '滨海公园慢行道', step_distance: '6000', polyline: '116.40,39.90;116.42,39.92' }] }
+    ] } })
+    expect(candidates[1].greenwayNamedM).toBe(6000)
+    expect(rankAmapCyclingCandidates(candidates, true)[0]).toBe(candidates[1])
+  })
+
   it('向 v5 接口请求三条备选路线', async () => {
     let requested = ''
     await fetchAmapBicyclingCandidates([116.4, 39.9], [116.41, 39.91], 'key', {
