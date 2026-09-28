@@ -5,6 +5,33 @@ import type { LngLat, RouteResult } from './ors'
 export type Place = { name: string; coord: LngLat }
 export type PoiSuggestion = Place & { id: string; district: string; address: string }
 
+const AMAP_CITY_PREFIXES = [
+  '深圳市', '上海市', '北京市', '广州市', '天津市', '重庆市', '香港', '澳门',
+  '深圳', '上海', '北京', '广州', '天津', '重庆', '杭州', '成都', '武汉', '南京',
+  '苏州', '西安', '长沙', '厦门', '青岛', '郑州', '福州', '宁波', '东莞', '佛山',
+  '珠海', '无锡', '大连', '沈阳', '济南', '合肥', '南宁', '昆明', '贵阳', '南昌',
+  '海口', '哈尔滨', '长春', '石家庄', '太原', '兰州', '银川', '乌鲁木齐', '呼和浩特'
+]
+
+const cityScopedQuery = (query: string) => {
+  const city = AMAP_CITY_PREFIXES.find(prefix => query.startsWith(prefix) && query.length > prefix.length)
+  return city ? { city: city.endsWith('市') ? city.slice(0, -1) : city, keywords: query.slice(city.length).trim() } : { city: '', keywords: query }
+}
+
+const poiFromAmap = (poi: any): PoiSuggestion | null => {
+  const numbers = String(poi.location ?? '').split(',').map(Number)
+  if (numbers.length !== 2 || !Number.isFinite(numbers[0]) || !Number.isFinite(numbers[1])) return null
+  const name = String(poi.name ?? '').trim()
+  if (!name) return null
+  return {
+    id: String(poi.id ?? `${name}-${numbers.join(',')}`),
+    name,
+    district: String(poi.district ?? [poi.cityname, poi.adname].filter(Boolean).join('')),
+    address: String(poi.address ?? ''),
+    coord: gcj02ToWgs84(numbers as LngLat)
+  }
+}
+
 export const searchAmapPois = async (
   keywords: string,
   key = loadRoutingConfig().amapKey,
@@ -13,23 +40,55 @@ export const searchAmapPois = async (
   const query = keywords.trim()
   if (query.length < 2) return []
   if (!key) throw new Error('缺少高德 Web 服务 Key，请在设置中配置')
-  const params = new URLSearchParams({ key, keywords: query, datatype: 'poi', output: 'json' })
-  const response = await (deps.request ?? fetch)(`https://restapi.amap.com/v3/assistant/inputtips?${params}`, { signal: deps.signal })
-  if (!response.ok) throw new Error(`高德地点搜索失败（${response.status}）`)
-  const json = await response.json()
-  if (String(json?.status) !== '1') throw new Error(`高德地点搜索失败：${json?.info ?? '未知错误'}`)
-  const tips = Array.isArray(json.tips) ? json.tips : []
-  return tips.flatMap((tip: any): PoiSuggestion[] => {
-    const numbers = String(tip.location ?? '').split(',').map(Number)
-    if (numbers.length !== 2 || !Number.isFinite(numbers[0]) || !Number.isFinite(numbers[1])) return []
-    return [{
-      id: String(tip.id ?? ''),
-      name: String(tip.name ?? ''),
-      district: String(tip.district ?? ''),
-      address: String(tip.address ?? ''),
-      coord: gcj02ToWgs84(numbers as LngLat)
-    }]
-  })
+  const request = deps.request ?? fetch
+  const { city, keywords: scopedKeywords } = cityScopedQuery(query)
+  const inputTips = async (term: string, cityName = ''): Promise<PoiSuggestion[]> => {
+    const params = new URLSearchParams({ key, keywords: term, datatype: 'poi', output: 'json' })
+    if (cityName) params.set('city', cityName)
+    const response = await request(`https://restapi.amap.com/v3/assistant/inputtips?${params}`, { signal: deps.signal })
+    if (!response.ok) throw new Error(`高德地点搜索失败（${response.status}）`)
+    const json = await response.json()
+    if (String(json?.status) !== '1') throw new Error(`高德地点搜索失败：${json?.info ?? '未知错误'}`)
+    return (Array.isArray(json.tips) ? json.tips : []).flatMap((tip: any) => {
+      const place = poiFromAmap(tip)
+      return place ? [place] : []
+    })
+  }
+
+  const direct = await inputTips(scopedKeywords, city)
+  if (direct.length) return direct
+
+  // Strip a typed city prefix and pass it as a city scope; if the exact POI
+  // phrase still misses, broaden to the landmark category before text search.
+  const fallbackTerms = [...new Set([
+    ...(['红树林', '湿地公园', '绿道', '森林公园', '公园', '广场', '骑行道']
+      .filter(term => query.includes(term)))
+  ])]
+  const results: PoiSuggestion[] = []
+  for (const term of fallbackTerms) {
+    results.push(...await inputTips(term, city))
+    if (results.length >= 10) break
+  }
+  if (results.length) return [...new Map(results.map(result => [result.id, result])).values()].slice(0, 10)
+
+  // The dedicated POI text search is a broader fallback for aliases and POIs
+  // that inputtips does not return, and it uses the same Web Service key.
+  const textTerms = fallbackTerms.length ? fallbackTerms : [query]
+  for (const term of textTerms) {
+    const params = new URLSearchParams({ key, keywords: term, output: 'json', offset: '20', page: '1' })
+    if (city) { params.set('city', city); params.set('citylimit', 'true') }
+    const response = await request(`https://restapi.amap.com/v3/place/text?${params}`, { signal: deps.signal })
+    if (!response.ok) throw new Error(`高德地点搜索失败（${response.status}）`)
+    const json = await response.json()
+    if (String(json?.status) !== '1') throw new Error(`高德地点搜索失败：${json?.info ?? '未知错误'}`)
+    const pois = Array.isArray(json.pois) ? json.pois : []
+    const matches: PoiSuggestion[] = pois.flatMap((poi: any): PoiSuggestion[] => {
+      const place = poiFromAmap(poi)
+      return place ? [place] : []
+    })
+    if (matches.length) return [...new Map<string, PoiSuggestion>(matches.map(result => [result.id, result])).values()].slice(0, 10)
+  }
+  return []
 }
 
 export const resolveAmapPoi = async (
